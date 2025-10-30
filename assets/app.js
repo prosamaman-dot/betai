@@ -12,6 +12,7 @@
 		settingsModal: document.getElementById('settingsModal'),
 		apiKey: document.getElementById('apiKey'),
 		model: document.getElementById('model'),
+		speechEngine: document.getElementById('speechEngine'),
 		saveSettings: document.getElementById('saveSettings'),
 		palette: document.getElementById('commandPalette'),
 		commandInput: document.getElementById('commandInput'),
@@ -51,7 +52,7 @@
 		messages: [], // {id, role:"user|assistant", content}
 		history: [], // {id, title, ts, messagesLen}
 		templates: DEFAULT_TEMPLATES,
-		settings: { apiKey: '', model: 'gpt-4o-mini' },
+		settings: { apiKey: '', model: 'gpt-4o-mini', speechEngine: 'browser' },
 		currentId: generateId('chat')
 	};
 
@@ -68,13 +69,16 @@
 	populateHistory();
 	els.apiKey.value = state.settings.apiKey || '';
 	els.model.value = state.settings.model || 'gpt-4o-mini';
+	if (els.speechEngine) { els.speechEngine.value = state.settings.speechEngine || 'browser'; }
 	renderAllMessages();
 	autosizeTextarea(els.input);
 	els.input.focus();
 
-	// Speech recognition setup (Web Speech API)
+	// Speech recognition setup (Web Speech API) + optional MediaRecorder for OpenAI
 	let recognition = null;
 	let isListening = false;
+	let mediaRecorder = null;
+	let audioChunks = [];
 	const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 	if (SpeechRecognition) {
 		recognition = new SpeechRecognition();
@@ -158,6 +162,7 @@
 	function saveSettings() {
 		state.settings.apiKey = (els.apiKey.value || '').trim();
 		state.settings.model = (els.model.value || 'gpt-4o-mini').trim();
+		state.settings.speechEngine = (els.speechEngine?.value || 'browser');
 		persist();
 		openModal(false);
 	}
@@ -173,25 +178,83 @@
 		streamAssistantResponse(thinking.id).catch(() => {});
 	}
 
-	function toggleVoice() {
-		if (!recognition) {
-			// Graceful notice
-			alert('Voice input is not supported in this browser. Try Chrome or Edge.');
-			return;
-		}
-		if (!isListening) {
-			try { recognition.start(); setListening(true); } catch { setListening(false); }
-		} else {
-			try { recognition.stop(); } catch {}
-			setListening(false);
-		}
-	}
+async function toggleVoice() {
+    const engine = state.settings.speechEngine || 'browser';
+    if (engine === 'browser') {
+        if (!recognition) { alert('Voice input is not supported in this browser. Try Chrome or Edge.'); return; }
+        if (!isListening) { try { recognition.start(); setListening(true); } catch { setListening(false); } }
+        else { try { recognition.stop(); } catch {} setListening(false); }
+        return;
+    }
+    // OpenAI Whisper via MediaRecorder
+    if (!isListening) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioChunks = [];
+            const mime = getBestAudioMime();
+            mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
+            mediaRecorder.ondataavailable = (e) => { if (e.data.size) audioChunks.push(e.data); };
+            mediaRecorder.onstop = async () => {
+                const blob = new Blob(audioChunks, { type: mime });
+                await transcribeWithOpenAI(blob);
+                stream.getTracks().forEach(t => t.stop());
+                mediaRecorder = null; audioChunks = [];
+            };
+            mediaRecorder.start();
+            setListening(true);
+        } catch (e) {
+            setListening(false);
+            alert('Microphone permission denied or not available.');
+        }
+    } else {
+        try { mediaRecorder?.stop(); } catch {}
+        setListening(false);
+    }
+}
 
 	function setListening(val) {
 		isListening = val;
 		els.attach.classList.toggle('listening', !!val);
 		els.attach.setAttribute('aria-pressed', val ? 'true' : 'false');
 	}
+
+function getBestAudioMime() {
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) return 'audio/webm;codecs=opus';
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) return 'audio/ogg;codecs=opus';
+    return 'audio/webm';
+}
+
+async function transcribeWithOpenAI(audioBlob) {
+    const apiKey = (state.settings.apiKey || '').trim();
+    if (!apiKey) { alert('Add your OpenAI API key in Settings to use Whisper.'); return; }
+    try {
+        const ext = audioBlob.type.includes('ogg') ? 'ogg' : 'webm';
+        const file = new File([audioBlob], `speech.${ext}`, { type: audioBlob.type });
+        const form = new FormData();
+        form.append('file', file);
+        form.append('model', 'whisper-1');
+        form.append('language', 'en');
+        const res = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${apiKey}` },
+            body: form
+        });
+        if (!res.ok) throw new Error('Transcription failed');
+        const data = await res.json();
+        const text = data?.text || '';
+        if (text) {
+            const base = (els.input.value || '').trim();
+            els.input.value = base ? base + ' ' + text : text;
+            autosizeTextarea(els.input);
+        } else {
+            alert('No transcript returned.');
+        }
+    } catch (e) {
+        alert('OpenAI transcription error.');
+    } finally {
+        setListening(false);
+    }
+}
 	function onInputKeydown(e) {
 		if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
 	}
