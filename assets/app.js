@@ -67,7 +67,7 @@ const DEFAULT_COMMANDS = [
 
 // If no key set yet, prefill with provided Gemini key (user-supplied)
 if (!state.settings.apiKey) {
-    state.settings.apiKey = 'AIzaSyBDPpqPETFTpTp_VALS6PJFjZKat3qY-_g';
+    state.settings.apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
 }
 // Ensure provider/model defaults to Gemini 2.5 Pro
 if (!state.settings.provider) state.settings.provider = 'gemini';
