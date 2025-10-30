@@ -12,6 +12,7 @@
 		settingsModal: document.getElementById('settingsModal'),
 		apiKey: document.getElementById('apiKey'),
 		model: document.getElementById('model'),
+		provider: document.getElementById('provider'),
 		speechEngine: document.getElementById('speechEngine'),
 		saveSettings: document.getElementById('saveSettings'),
 		palette: document.getElementById('commandPalette'),
@@ -41,18 +42,18 @@
 		{ id: 'optimize', title: 'Optimize Prompt', prompt: 'Rewrite my prompt to be clearer and more effective: ' }
 	];
 
-	const DEFAULT_COMMANDS = [
-		{ id: 'new', label: 'New chat', action: () => startNewChat() },
-		{ id: 'clear', label: 'Clear messages', action: () => clearMessages() },
-		{ id: 'toggle-settings', label: 'Open settings', action: () => openModal(true) },
-		{ id: 'export', label: 'Export conversation (JSON)', action: () => exportConversation() }
-	];
+const DEFAULT_COMMANDS = [
+    { id: 'new', label: 'New chat', action: () => startNewChat() },
+    { id: 'clear', label: 'Clear messages', action: () => clearMessages() },
+    { id: 'toggle-settings', label: 'Open settings', action: () => openModal(true) },
+    { id: 'export', label: 'Export conversation (JSON)', action: () => exportConversation() }
+];
 
 	let state = {
 		messages: [], // {id, role:"user|assistant", content}
 		history: [], // {id, title, ts, messagesLen}
 		templates: DEFAULT_TEMPLATES,
-		settings: { apiKey: '', model: 'gpt-4o-mini', speechEngine: 'browser' },
+		settings: { apiKey: '', model: 'gemini-2.5-pro', provider: 'gemini', speechEngine: 'browser' },
 		currentId: generateId('chat')
 	};
 
@@ -64,11 +65,20 @@
 		});
 	}
 
+// If no key set yet, prefill with provided Gemini key (user-supplied)
+if (!state.settings.apiKey) {
+    state.settings.apiKey = 'AIzaSyBDPpqPETFTpTp_VALS6PJFjZKat3qY-_g';
+}
+// Ensure provider/model defaults to Gemini 2.5 Pro
+if (!state.settings.provider) state.settings.provider = 'gemini';
+if (!state.settings.model) state.settings.model = 'gemini-2.5-pro';
+
 	// UI bootstrap
 	populateTemplates();
 	populateHistory();
 	els.apiKey.value = state.settings.apiKey || '';
-	els.model.value = state.settings.model || 'gpt-4o-mini';
+els.model.value = state.settings.model || 'gemini-2.5-pro';
+	if (els.provider) { els.provider.value = state.settings.provider || 'gemini'; }
 	if (els.speechEngine) { els.speechEngine.value = state.settings.speechEngine || 'browser'; }
 	renderAllMessages();
 	autosizeTextarea(els.input);
@@ -90,7 +100,7 @@
 			let finalText = '';
 			for (let i = e.resultIndex; i < e.results.length; i++) {
 				const res = e.results[i];
-				(res.isFinal ? finalText : interim) += res[0].transcript;
+				if (res.isFinal) { finalText += res[0].transcript; } else { interim += res[0].transcript; }
 			}
 			const base = (els.input.value || '').trim();
 			els.input.value = (base ? base + ' ' : '') + (finalText || interim);
@@ -122,6 +132,9 @@
 		}
 		if (e.key === 'Escape') { openPalette(false); openModal(false); }
 	});
+
+// Health ping to verify JS loaded
+try { console.debug('BetAI: app initialized'); } catch {}
 
 	// Palette logic
 	els.commandInput.addEventListener('input', renderPalette);
@@ -161,7 +174,8 @@
 	}
 	function saveSettings() {
 		state.settings.apiKey = (els.apiKey.value || '').trim();
-		state.settings.model = (els.model.value || 'gpt-4o-mini').trim();
+		state.settings.model = (els.model.value || 'gemini-2.0-pro').trim();
+		state.settings.provider = (els.provider?.value || 'gemini');
 		state.settings.speechEngine = (els.speechEngine?.value || 'browser');
 		persist();
 		openModal(false);
@@ -196,7 +210,11 @@ async function toggleVoice() {
             mediaRecorder.ondataavailable = (e) => { if (e.data.size) audioChunks.push(e.data); };
             mediaRecorder.onstop = async () => {
                 const blob = new Blob(audioChunks, { type: mime });
-                await transcribeWithOpenAI(blob);
+                if ((state.settings.provider || 'gemini') === 'gemini') {
+                    await transcribeWithGemini(blob);
+                } else {
+                    await transcribeWithOpenAI(blob);
+                }
                 stream.getTracks().forEach(t => t.stop());
                 mediaRecorder = null; audioChunks = [];
             };
@@ -259,6 +277,77 @@ async function transcribeWithOpenAI(audioBlob) {
 		if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
 	}
 
+	async function transcribeWithGemini(audioBlob) {
+		const apiKey = (state.settings.apiKey || '').trim();
+		const model = state.settings.model || 'gemini-2.0-pro';
+		if (!apiKey) { alert('Add your Gemini API key in Settings.'); return; }
+		const base64 = await blobToBase64(audioBlob);
+		const mime = audioBlob.type || 'audio/webm';
+		const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+		const body = {
+			contents: [
+				{
+					role: 'user',
+					parts: [
+						{ text: 'Transcribe the following audio into plain text. Return only the transcript.' },
+						{ inline_data: { mime_type: mime, data: base64 } }
+					]
+				}
+			]
+		};
+		try {
+			const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+			if (!res.ok) throw new Error('Gemini transcription failed');
+			const data = await res.json();
+			const text = extractGeminiText(data) || '';
+			if (text) {
+				const base = (els.input.value || '').trim();
+				els.input.value = base ? base + ' ' + text : text;
+				autosizeTextarea(els.input);
+			} else {
+				alert('No transcript returned by Gemini.');
+			}
+		} catch (e) {
+			alert('Gemini transcription error.');
+		} finally {
+			setListening(false);
+		}
+	}
+
+	async function callGeminiChat(apiKey, model, messages) {
+		const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+		const contents = messages.map(m => ({
+			role: m.role === 'assistant' ? 'model' : 'user',
+			parts: [{ text: m.content }]
+		}));
+		if (!contents.length) contents.push({ role: 'user', parts: [{ text: 'Hello' }] });
+		const body = { contents };
+		const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+		const data = await res.json();
+		return extractGeminiText(data) || 'Sorry, no response.';
+	}
+
+	async function callOpenAIChat(apiKey, model, messages) {
+		const sys = { role: 'system', content: 'You are a concise, helpful assistant.' };
+		const convo = messages.map(m => ({ role: m.role, content: m.content }));
+		const body = { model, messages: [sys, ...convo] };
+		const res = await fetch('https://api.openai.com/v1/chat/completions', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+			body: JSON.stringify(body)
+		});
+		const data = await res.json();
+		return data?.choices?.[0]?.message?.content || 'Sorry, no response.';
+	}
+
+	function extractGeminiText(data) {
+		const parts = data?.candidates?.[0]?.content?.parts;
+		if (!parts) return '';
+		return parts.map(p => p.text || '').join('').trim();
+	}
+
+	function blobToBase64(blob) { return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve((r.result||'').toString().split(',')[1]||''); r.onerror = reject; r.readAsDataURL(blob); }); }
+
 	function pushMessage(role, content) {
 		const msg = { id: generateId('msg'), role, content };
 		state.messages.push(msg);
@@ -274,6 +363,12 @@ async function transcribeWithOpenAI(audioBlob) {
 		if (!state.messages.length) {
 			renderIntro();
 		}
+
+function clearMessages() {
+    state.messages = [];
+    persist();
+    renderAllMessages();
+}
 	}
 
 	function renderIntro() {
@@ -346,7 +441,7 @@ async function transcribeWithOpenAI(audioBlob) {
 
 	async function streamAssistantResponse(targetId, isRegen = false) {
 		const apiKey = state.settings.apiKey;
-		const model = state.settings.model || 'gpt-4o-mini';
+		const model = state.settings.model || (state.settings.provider === 'gemini' ? 'gemini-2.0-pro' : 'gpt-4o-mini');
 		const lastUser = findLastUserMessage();
 		const targetEl = findBubbleContent(targetId);
 		if (!targetEl) return;
@@ -362,16 +457,12 @@ async function transcribeWithOpenAI(audioBlob) {
 
 		try {
 			targetEl.textContent = '';
-			const sys = { role: 'system', content: 'You are a concise, helpful assistant.' };
-			const convo = state.messages.map(m => ({ role: m.role, content: m.content }));
-			const body = { model, messages: [sys, ...convo] };
-			const res = await fetch('https://api.openai.com/v1/chat/completions', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-				body: JSON.stringify(body)
-			});
-			const data = await res.json();
-			const content = data?.choices?.[0]?.message?.content || 'Sorry, no response.';
+			let content = '';
+			if (state.settings.provider === 'gemini') {
+				content = await callGeminiChat(apiKey, model, state.messages);
+			} else {
+				content = await callOpenAIChat(apiKey, model, state.messages);
+			}
 			await streamText(targetEl, content);
 			const msg = state.messages.find(m => m.id === targetId);
 			msg.content = content;

@@ -19,7 +19,7 @@
 					<div class="logo__core"></div>
 					<span class="logo__text">BetAI</span>
 				</div>
-				<button id="openSettings" class="icon-btn" title="Settings (S)">
+				<button id="openSettings" class="icon-btn" title="Settings (S)" type="button" role="button">
 					<svg class="i"><use href="#icon-gear"></use></svg>
 					<span class="sr-only">Open Settings</span>
 				</button>
@@ -42,7 +42,7 @@
 					<h1>Black & White Intelligence</h1>
 				</div>
 				<div class="toolbar">
-					<button id="openCommand" class="ghost-btn" title="Command Palette (Ctrl+K)"><svg class="i"><use href="#icon-command"></use></svg></button>
+					<button id="openCommand" class="ghost-btn" title="Command Palette (Ctrl+K)" type="button" role="button"><svg class="i"><use href="#icon-command"></use></svg></button>
 				</div>
 			</header>
 
@@ -52,8 +52,8 @@
 				<div class="composer__wrap">
 					<textarea id="input" class="input" placeholder="Ask anything..." rows="1"></textarea>
 					<div class="composer__actions">
-						<button id="attach" class="ghost-btn" title="Voice input (click to toggle)"><svg class="i"><use href="#icon-mic"></use></svg></button>
-						<button id="send" class="send-btn" title="Send (Enter)"><svg class="i i--plane"><use href="#icon-plane"></use></svg></button>
+						<button id="attach" class="ghost-btn" title="Voice input (click to toggle)" type="button" role="button"><svg class="i"><use href="#icon-mic"></use></svg></button>
+						<button id="send" class="send-btn" title="Send (Enter)" type="button" role="button"><svg class="i i--plane"><use href="#icon-plane"></use></svg></button>
 					</div>
 				</div>
 				<div class="hints">
@@ -69,16 +69,23 @@
 		<div class="modal__dialog">
 			<header class="modal__header">
 				<h2>Settings</h2>
-				<button class="icon-btn" data-close="modal" title="Close"><svg class="i"><use href="#icon-x"></use></svg></button>
+				<button class="icon-btn" data-close="modal" title="Close" type="button" role="button"><svg class="i"><use href="#icon-x"></use></svg></button>
 			</header>
 			<div class="modal__body">
+				<label class="field">
+					<span class="field__label">Provider</span>
+					<select id="provider">
+						<option value="gemini">Google Gemini</option>
+						<option value="openai">OpenAI</option>
+					</select>
+				</label>
 				<label class="field">
 					<span class="field__label">OpenAI API Key (optional)</span>
 					<input id="apiKey" type="password" placeholder="sk-..." />
 				</label>
 				<label class="field">
 					<span class="field__label">Model</span>
-					<input id="model" type="text" value="gpt-4o-mini" />
+					<input id="model" type="text" value="gemini-2.5-pro" />
 				</label>
 				<label class="field">
 					<span class="field__label">Speech Engine</span>
@@ -90,7 +97,7 @@
 				<p class="muted">Your key is stored locally in this browser only.</p>
 			</div>
 			<footer class="modal__footer">
-				<button id="saveSettings" class="send-btn">Save</button>
+				<button id="saveSettings" class="send-btn" type="button" role="button">Save</button>
 			</footer>
 		</div>
 	</div>
