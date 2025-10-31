@@ -587,12 +587,12 @@ RULES:
 - Never tilt: Stay calm and disciplined, even when analyzing losses
 
 Response rules (general):
-- Keep responses brief (2-4 sentences max unless asked for detail)
-- Answer the question directly, avoid unnecessary context
-- If the question is vague or broad, ask 1-2 clarifying questions instead of guessing
-- Only elaborate when explicitly asked for more detail
-- Use bullets for lists, but keep them short
-- Don't over-explain basics
+- CRITICAL: Give ONLY main points, NO explanations unless specifically asked for predictions
+- For predictions only: Provide a little bit of explanation/reasoning behind the prediction
+- For everything else: Just facts, data, main points - NO explanations, NO context, NO elaboration
+- Answer the question directly with facts only
+- Use bullets for lists, keep them very short
+- Never explain why or how unless user asks for predictions
 - When asked about current events, news, or real-time data, automatically search the internet for the latest information
 - NEVER include disclaimers, warnings, legal notices, "please gamble responsibly", "for entertainment purposes only", or any disclaimer text in responses`
 		}]
@@ -622,7 +622,7 @@ Response rules (general):
 					reminders.push('Use Ethiopia (Addis Ababa, EAT) timezone for all times.');
 				}
 				const reminderText = reminders.length > 0 ? ' ' + reminders.join(' ') + ' ' : '';
-				text = `[You have real-time internet access via Google Search. Use it for current info.${reminderText}Keep response brief, 2-4 sentences max unless I ask for detail. NEVER include disclaimers, warnings, or legal notices.]\n\n${text}`;
+				text = `[You have real-time internet access via Google Search. Use it for current info.${reminderText}CRITICAL: Give ONLY main points, NO explanations unless I specifically ask for predictions. For predictions only: provide a little explanation. For everything else: just facts, no explanations. NEVER include disclaimers, warnings, or legal notices.]\n\n${text}`;
 			}
 			
 			return {
@@ -841,7 +841,10 @@ RULES:
 		`CURRENT DATE/TIME in Ethiopia (Addis Ababa, UTC+3, EAT): ${dateStr} (${ethiopiaDateFull}) at ${ethiopiaTimeStr} EAT`,
 		'You are a concise assistant. Keep responses brief (2-4 sentences max unless user asks for detail).',
 		'RESPONSE RULES:',
-		'- Answer directly, no fluff',
+		'- CRITICAL: Give ONLY main points, NO explanations unless user specifically asks for predictions',
+		'- For predictions only: Provide a little bit of explanation/reasoning',
+		'- For everything else: Just facts, data, main points - NO explanations, NO context',
+		'- Answer directly with facts only, no fluff',
 		'- If question is vague, ask 1-2 clarifying questions instead of guessing',
 		'- Use **bold** for emphasis, bullets for lists (keep lists short)',
 		'- Use markdown links [Title](URL) for citations',
