@@ -426,13 +426,17 @@ async function callGeminiChat(apiKey, model, messages) {
 	const systemInstruction = {
 		role: 'user',
 		parts: [{
-			text: `You are a concise assistant. Response rules:
+			text: `You are a concise assistant with REAL-TIME INTERNET ACCESS via Google Search. 
+IMPORTANT: You have access to live internet data and can search for current information. Use Google Search when needed for real-time data.
+
+Response rules:
 - Keep responses brief (2-4 sentences max unless asked for detail)
 - Answer the question directly, avoid unnecessary context
 - If the question is vague or broad, ask 1-2 clarifying questions instead of guessing
 - Only elaborate when explicitly asked for more detail
 - Use bullets for lists, but keep them short
-- Don't over-explain basics`
+- Don't over-explain basics
+- When asked about current events, news, or real-time data, automatically search the internet for the latest information`
 		}]
 	};
 	
@@ -449,7 +453,7 @@ async function callGeminiChat(apiKey, model, messages) {
 			
 			// Add brief conciseness reminder to user messages (keeps AI concise throughout)
 			if (m.role === 'user' && !m.content.includes('CURRENT DATE/TIME') && !m.content.includes('You are a concise')) {
-				text = `[Keep response brief, 2-4 sentences max unless I ask for detail]\n\n${text}`;
+				text = `[You have real-time internet access via Google Search. Use it for current info. Keep response brief, 2-4 sentences max unless I ask for detail]\n\n${text}`;
 			}
 			
 			return {
@@ -467,7 +471,15 @@ async function callGeminiChat(apiKey, model, messages) {
 	if (contents.length <= 2) { // 1 user message + maybe 1 system
 		contents.unshift(systemInstruction);
 	}
-    const body = { contents };
+    
+    // Enable Gemini's built-in Google Search integration
+    const body = { 
+        contents,
+        tools: [{
+            googleSearch: {}
+        }]
+    };
+    
     const data = await postJsonWithRetry(url, body, { 'Content-Type': 'application/json' });
     const text = extractGeminiText(data);
     return text || (data?.error?.message ? `Gemini: ${data.error.message}` : 'Sorry, no response.');
@@ -487,9 +499,28 @@ async function callGeminiChat(apiKey, model, messages) {
 	}
 
 	function extractGeminiText(data) {
-		const parts = data?.candidates?.[0]?.content?.parts;
+		const candidate = data?.candidates?.[0];
+		const parts = candidate?.content?.parts;
 		if (!parts) return '';
-		return parts.map(p => p.text || '').join('').trim();
+		
+		let text = parts.map(p => p.text || '').join('').trim();
+		
+		// Extract grounding metadata (search citations) if available
+		const groundingMetadata = candidate?.groundingMetadata;
+		if (groundingMetadata?.groundingChunks && groundingMetadata.groundingChunks.length > 0) {
+			const sources = [];
+			groundingMetadata.groundingChunks.forEach(chunk => {
+				if (chunk.web && chunk.web.uri) {
+					sources.push(chunk.web.uri);
+				}
+			});
+			if (sources.length > 0) {
+				const uniqueSources = [...new Set(sources)];
+				text += '\n\n**Sources:**\n' + uniqueSources.slice(0, 5).map((url, i) => `- [${url}](${url})`).join('\n');
+			}
+		}
+		
+		return text;
 	}
 
 	function blobToBase64(blob) { return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve((r.result||'').toString().split(',')[1]||''); r.onerror = reject; r.readAsDataURL(blob); }); }
@@ -678,7 +709,7 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 		wrap.innerHTML = `
 			<div class="bubble">
 				<h3>Welcome to BetAI</h3>
-				<p>All black and white. Sleek. Fast. Type your question below.</p>
+				<p>All black and white. Sleek. Fast. I have <strong>real-time internet access</strong> via Google Search. Ask me anything about current events, news, or latest information!</p>
 			</div>
 		`;
 		els.messages.appendChild(wrap);
