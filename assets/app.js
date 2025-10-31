@@ -14,6 +14,10 @@
 		model: document.getElementById('model'),
 		provider: document.getElementById('provider'),
 		speechEngine: document.getElementById('speechEngine'),
+		searchProvider: document.getElementById('searchProvider'),
+		searchKey: document.getElementById('searchKey'),
+		searchAuto: document.getElementById('searchAuto'),
+		searchWiki: document.getElementById('searchWiki'),
 		saveSettings: document.getElementById('saveSettings'),
 		palette: document.getElementById('commandPalette'),
 		commandInput: document.getElementById('commandInput'),
@@ -46,14 +50,15 @@ const DEFAULT_COMMANDS = [
     { id: 'new', label: 'New chat', action: () => startNewChat() },
     { id: 'clear', label: 'Clear messages', action: () => clearMessages() },
     { id: 'toggle-settings', label: 'Open settings', action: () => openModal(true) },
-    { id: 'export', label: 'Export conversation (JSON)', action: () => exportConversation() }
+    { id: 'export', label: 'Export conversation (JSON)', action: () => exportConversation() },
+    { id: 'match', label: 'Analyze football match', action: () => openMatchModal(true) }
 ];
 
 	let state = {
 		messages: [], // {id, role:"user|assistant", content}
 		history: [], // {id, title, ts, messagesLen}
 		templates: DEFAULT_TEMPLATES,
-		settings: { apiKey: '', model: 'gemini-2.5-pro', provider: 'gemini', speechEngine: 'browser' },
+		settings: { apiKey: '', model: 'gemini-2.5-pro', provider: 'gemini', speechEngine: 'browser', searchProvider: 'serper', searchKey: '', searchAuto: true, searchWiki: true },
 		currentId: generateId('chat')
 	};
 
@@ -80,6 +85,10 @@ if (!state.settings.model) state.settings.model = 'gemini-2.5-pro';
 els.model.value = state.settings.model || 'gemini-2.5-pro';
 	if (els.provider) { els.provider.value = state.settings.provider || 'gemini'; }
 	if (els.speechEngine) { els.speechEngine.value = state.settings.speechEngine || 'browser'; }
+if (els.searchProvider) els.searchProvider.value = state.settings.searchProvider || 'serper';
+if (els.searchKey) els.searchKey.value = state.settings.searchKey || '';
+if (els.searchAuto) els.searchAuto.checked = !!state.settings.searchAuto;
+if (els.searchWiki) els.searchWiki.checked = !!state.settings.searchWiki;
 	renderAllMessages();
 	autosizeTextarea(els.input);
 	els.input.focus();
@@ -121,6 +130,18 @@ els.model.value = state.settings.model || 'gemini-2.5-pro';
 	els.openSettings.addEventListener('click', () => openModal(true));
 	els.saveSettings.addEventListener('click', saveSettings);
 	els.attach.addEventListener('click', toggleVoice);
+	const ma = {
+		modal: document.getElementById('matchModal'),
+		home: document.getElementById('maHome'),
+		away: document.getElementById('maAway'),
+		league: document.getElementById('maLeague'),
+		date: document.getElementById('maDate'),
+		formHome: document.getElementById('maFormHome'),
+		formAway: document.getElementById('maFormAway'),
+		notes: document.getElementById('maNotes'),
+		run: document.getElementById('runMatchAnalysis')
+	};
+	ma?.run?.addEventListener('click', runMatchAnalysis);
 	window.addEventListener('click', (e) => {
 		if (e.target?.dataset?.close === 'modal') openModal(false);
 		if (e.target?.dataset?.close === 'palette') openPalette(false);
@@ -177,6 +198,10 @@ try { console.debug('BetAI: app initialized'); } catch {}
 		state.settings.model = (els.model.value || 'gemini-2.0-pro').trim();
 		state.settings.provider = (els.provider?.value || 'gemini');
 		state.settings.speechEngine = (els.speechEngine?.value || 'browser');
+		state.settings.searchProvider = (els.searchProvider?.value || 'serper');
+		state.settings.searchKey = (els.searchKey?.value || '').trim();
+		state.settings.searchAuto = !!els.searchAuto?.checked;
+		state.settings.searchWiki = !!els.searchWiki?.checked;
 		persist();
 		openModal(false);
 	}
@@ -189,7 +214,11 @@ try { console.debug('BetAI: app initialized'); } catch {}
 		els.input.value = '';
 		autosizeTextarea(els.input);
 		const thinking = pushMessage('assistant', '');
-		streamAssistantResponse(thinking.id).catch(() => {});
+		if (shouldUseWebSearch(text)) {
+			webAugmentedAnswer(text, thinking.id).catch(() => streamAssistantResponse(thinking.id));
+		} else {
+			streamAssistantResponse(thinking.id).catch(() => {});
+		}
 	}
 
 async function toggleVoice() {
@@ -228,6 +257,12 @@ async function toggleVoice() {
         try { mediaRecorder?.stop(); } catch {}
         setListening(false);
     }
+}
+
+function openMatchModal(open) {
+	if (!ma?.modal) return;
+	ma.modal.setAttribute('aria-hidden', open ? 'false' : 'true');
+	if (open) setTimeout(() => ma.home?.focus(), 20);
 }
 
 	function setListening(val) {
@@ -273,11 +308,40 @@ async function transcribeWithOpenAI(audioBlob) {
         setListening(false);
     }
 }
+
+function runMatchAnalysis() {
+	const home = (ma.home?.value || '').trim();
+	const away = (ma.away?.value || '').trim();
+	if (!home || !away) { alert('Enter both Home and Away teams.'); return; }
+	const league = (ma.league?.value || '').trim();
+	const date = (ma.date?.value || '').trim();
+	const formH = (ma.formHome?.value || '').trim();
+	const formA = (ma.formAway?.value || '').trim();
+	const notes = (ma.notes?.value || '').trim();
+
+	const prompt = [
+		`Analyze this football match and give a concise prediction:`,
+		`- Match: ${home} vs ${away}${league ? ' — ' + league : ''}${date ? ' on ' + date : ''}`,
+		formH ? `- ${home} recent form: ${formH}` : '',
+		formA ? `- ${away} recent form: ${formA}` : '',
+		notes ? `- Notes: ${notes}` : '',
+		`Guidance: Do not browse or scrape websites. You may incorporate any facts provided by the user, including from sources like FotMob (https://www.fotmob.com/).`,
+		`Output format:`,
+		`1) Win/Draw/Win probabilities (sum to 100%).`,
+		`2) Rationale (key factors: form, injuries, rest, matchup, home/away).`,
+		`3) Suggested bets (if any) with brief risk notes.`
+	].filter(Boolean).join('\n');
+
+	pushMessage('user', prompt);
+	openMatchModal(false);
+	const thinking = pushMessage('assistant', '');
+	streamAssistantResponse(thinking.id).catch(() => {});
+}
 	function onInputKeydown(e) {
 		if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
 	}
 
-	async function transcribeWithGemini(audioBlob) {
+async function transcribeWithGemini(audioBlob) {
 		const apiKey = (state.settings.apiKey || '').trim();
 		const model = state.settings.model || 'gemini-2.0-pro';
 		if (!apiKey) { alert('Add your Gemini API key in Settings.'); return; }
@@ -295,36 +359,34 @@ async function transcribeWithOpenAI(audioBlob) {
 				}
 			]
 		};
-		try {
-			const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-			if (!res.ok) throw new Error('Gemini transcription failed');
-			const data = await res.json();
+    try {
+        const data = await postJsonWithRetry(url, body, { 'Content-Type': 'application/json' });
 			const text = extractGeminiText(data) || '';
 			if (text) {
 				const base = (els.input.value || '').trim();
 				els.input.value = base ? base + ' ' + text : text;
 				autosizeTextarea(els.input);
 			} else {
-				alert('No transcript returned by Gemini.');
+            alert(data?.error?.message ? `Gemini: ${data.error.message}` : 'No transcript returned by Gemini.');
 			}
-		} catch (e) {
-			alert('Gemini transcription error.');
+    } catch (e) {
+        alert(e?.message || 'Gemini transcription error.');
 		} finally {
 			setListening(false);
 		}
 	}
 
-	async function callGeminiChat(apiKey, model, messages) {
+async function callGeminiChat(apiKey, model, messages) {
 		const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
 		const contents = messages.map(m => ({
 			role: m.role === 'assistant' ? 'model' : 'user',
 			parts: [{ text: m.content }]
 		}));
 		if (!contents.length) contents.push({ role: 'user', parts: [{ text: 'Hello' }] });
-		const body = { contents };
-		const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-		const data = await res.json();
-		return extractGeminiText(data) || 'Sorry, no response.';
+    const body = { contents };
+    const data = await postJsonWithRetry(url, body, { 'Content-Type': 'application/json' });
+    const text = extractGeminiText(data);
+    return text || (data?.error?.message ? `Gemini: ${data.error.message}` : 'Sorry, no response.');
 	}
 
 	async function callOpenAIChat(apiKey, model, messages) {
@@ -347,6 +409,121 @@ async function transcribeWithOpenAI(audioBlob) {
 	}
 
 	function blobToBase64(blob) { return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve((r.result||'').toString().split(',')[1]||''); r.onerror = reject; r.readAsDataURL(blob); }); }
+
+function shouldUseWebSearch(text) {
+	if (!state.settings.searchAuto) return false;
+	if (!(state.settings.searchKey || '').trim()) return false;
+	const q = (text || '').toLowerCase();
+	const triggers = ['today', 'now', 'latest', 'breaking', 'this week', 'this month', 'live', 'score', 'fixture', 'transfer', 'trending', 'news'];
+	return triggers.some(t => q.includes(t));
+}
+
+async function webAugmentedAnswer(userText, targetId) {
+	const key = (state.settings.searchKey || '').trim();
+	if (!key) { return streamAssistantResponse(targetId); }
+	let results = [];
+	try {
+		if ((state.settings.searchProvider || 'serper') === 'newsapi') {
+			results = await webSearchNewsAPI(userText, key);
+		} else {
+			results = await webSearchSerper(userText, key);
+		}
+	} catch { results = []; }
+	if (!Array.isArray(results)) results = [];
+	const top = results.slice(0, 5);
+	// If not enough results and wiki fallback is enabled, top up from Wikipedia
+	if (top.length < 3 && state.settings.searchWiki) {
+		try {
+			const wiki = await webSearchWikipedia(userText);
+			wiki.forEach(w => { if (top.length < 5) top.push(w); });
+		} catch {}
+	}
+	const sources = top.map((r, i) => `(${i+1}) ${r.title} — ${r.link}`).join('\n');
+	const contextMsg = composeWebPrompt(userText, sources);
+	// Temporarily append a context message then ask Gemini
+	const original = [...state.messages];
+	state.messages.push({ id: generateId('msg'), role: 'user', content: contextMsg });
+	try {
+		const apiKey = state.settings.apiKey;
+		const model = state.settings.model || 'gemini-2.5-pro';
+		const answer = await callGeminiChat(apiKey, model, state.messages);
+		const targetEl = findBubbleContent(targetId);
+		if (targetEl) {
+			const cites = renderCitations(top.slice(0, 3));
+			const finalText = (answer || '').trim() + (cites ? `\n\nSources:\n${cites}` : '');
+			await streamText(targetEl, finalText);
+			const msg = state.messages.find(m => m.id === targetId);
+			msg.content = targetEl.textContent;
+			persist();
+		}
+	} finally {
+		state.messages = original; // restore convo without the ephemeral context message
+	}
+}
+
+async function webSearchSerper(query, key) {
+	const url = 'https://google.serper.dev/search';
+	const body = { q: query, gl: 'us', hl: 'en' };
+	const headers = { 'X-API-KEY': key, 'Content-Type': 'application/json' };
+	const data = await postJsonWithRetry(url, body, headers);
+	const items = [];
+	(data?.organic || []).forEach(o => items.push({ title: o.title, link: o.link, snippet: o.snippet }));
+	(data?.news || []).forEach(n => items.push({ title: n.title, link: n.link, snippet: n.snippet }));
+	return items;
+}
+
+async function webSearchNewsAPI(query, key) {
+	const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=5`;
+	const headers = { 'X-Api-Key': key };
+	const data = await postJsonWithRetry(url, null, headers); // body null → GET; tweak helper to allow
+	const items = [];
+	(data?.articles || []).forEach(a => items.push({ title: a.title, link: a.url, snippet: a.description }));
+	return items;
+}
+
+async function webSearchWikipedia(query) {
+	const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*`;
+	const res = await fetch(url);
+	const data = await res.json();
+	const items = [];
+	(data?.query?.search || []).slice(0, 5).forEach(s => items.push({ title: s.title, link: `https://en.wikipedia.org/wiki/${encodeURIComponent(s.title.replace(/\s/g,'_'))}`, snippet: s.snippet?.replace(/<[^>]*>/g,'') }));
+	return items;
+}
+
+function composeWebPrompt(userText, sources) {
+	return [
+		'You are an energetic, concise analyst. Answer engagingly using bullets and short paragraphs. Avoid outdated claims.',
+		'Incorporate recent web results provided below; if conflicting, note uncertainty. Always cite with markdown links [Title](URL).',
+		`User question: ${userText}`,
+		'Web results:',
+		sources || 'No results.'
+	].join('\n');
+}
+
+function renderCitations(list) {
+	if (!list || !list.length) return '';
+	return list.map(r => `- [${r.title}](${r.link})`).join('\n');
+}
+
+async function postJsonWithRetry(url, body, headers) {
+    let lastError = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+            const init = body == null ? { method: 'GET', headers } : { method: 'POST', headers, body: JSON.stringify(body) };
+            const res = await fetch(url, init);
+            if (res.ok) return await res.json();
+            if (res.status === 429) {
+                await sleep(1000 * Math.pow(2, attempt));
+                continue;
+            }
+            const errJson = await safeReadJson(res);
+            lastError = new Error(errJson?.error?.message || `HTTP ${res.status}`);
+        } catch (e) { lastError = e; }
+    }
+    throw lastError || new Error('Network error');
+}
+
+async function safeReadJson(res) { try { return await res.json(); } catch { return null; } }
 
 	function pushMessage(role, content) {
 		const msg = { id: generateId('msg'), role, content };

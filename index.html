@@ -80,6 +80,25 @@
 					</select>
 				</label>
 				<label class="field">
+					<span class="field__label">Web Search Provider</span>
+					<select id="searchProvider">
+						<option value="serper">Serper.dev (Google Search)</option>
+						<option value="newsapi">NewsAPI.org (News)</option>
+					</select>
+				</label>
+				<label class="field">
+					<span class="field__label">Search API Key</span>
+					<input id="searchKey" type="password" placeholder="serper key..." />
+				</label>
+				<label class="field">
+					<span class="field__label">Auto web search for fresh queries</span>
+					<input id="searchAuto" type="checkbox" />
+				</label>
+				<label class="field">
+					<span class="field__label">Wikipedia fallback (no key)</span>
+					<input id="searchWiki" type="checkbox" />
+				</label>
+				<label class="field">
 					<span class="field__label">OpenAI API Key (optional)</span>
 					<input id="apiKey" type="password" placeholder="sk-..." />
 				</label>
@@ -108,6 +127,51 @@
 		<div class="palette__dialog">
 			<input id="commandInput" class="palette__input" placeholder="Type a command or search templates..." />
 			<ul id="commandList" class="palette__list"></ul>
+		</div>
+	</div>
+
+	<!-- Match Analyzer Modal -->
+	<div id="matchModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
+		<div class="modal__backdrop" data-close="modal"></div>
+		<div class="modal__dialog">
+			<header class="modal__header">
+				<h2>Match Analyzer</h2>
+				<button class="icon-btn" data-close="modal" title="Close" type="button" role="button"><svg class="i"><use href="#icon-x"></use></svg></button>
+			</header>
+			<div class="modal__body">
+				<label class="field">
+					<span class="field__label">Home Team</span>
+					<input id="maHome" type="text" placeholder="e.g., Real Madrid" />
+				</label>
+				<label class="field">
+					<span class="field__label">Away Team</span>
+					<input id="maAway" type="text" placeholder="e.g., Barcelona" />
+				</label>
+				<label class="field">
+					<span class="field__label">League / Competition</span>
+					<input id="maLeague" type="text" placeholder="e.g., La Liga" />
+				</label>
+				<label class="field">
+					<span class="field__label">Match Date (optional)</span>
+					<input id="maDate" type="text" placeholder="YYYY-MM-DD" />
+				</label>
+				<label class="field">
+					<span class="field__label">Recent Form — Home (comma separated)</span>
+					<input id="maFormHome" type="text" placeholder="W,W,D,L,W" />
+				</label>
+				<label class="field">
+					<span class="field__label">Recent Form — Away (comma separated)</span>
+					<input id="maFormAway" type="text" placeholder="W,D,L,W,D" />
+				</label>
+				<label class="field">
+					<span class="field__label">Notes (injuries, odds, travel, etc.)</span>
+					<input id="maNotes" type="text" placeholder="Key striker injured; odds 1.80/3.50/4.20" />
+				</label>
+				<p class="muted">Tip: You can copy stats from sources like FotMob manually. Automated crawling of FotMob is not permitted by their terms (<a href="https://www.fotmob.com/" target="_blank" rel="noreferrer">fotmob.com</a>).</p>
+			</div>
+			<footer class="modal__footer">
+				<button id="runMatchAnalysis" class="send-btn" type="button" role="button">Analyze</button>
+			</footer>
 		</div>
 	</div>
 

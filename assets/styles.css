@@ -126,6 +126,7 @@ body {
 .field__label { font-size: 12px; text-transform: uppercase; color: var(--muted); letter-spacing: 1px; }
 .field input { height: 40px; padding: 0 12px; border-radius: var(--radius-xs); border: 1px solid var(--edge); background: #0a0a0a; color: var(--fg); }
 .field select { height: 40px; padding: 0 12px; border-radius: var(--radius-xs); border: 1px solid var(--edge); background: #0a0a0a; color: var(--fg); }
+.field input[type="checkbox"] { height: 18px; width: 18px; accent-color: #fff; }
 .muted { color: var(--muted); font-size: 13px; }
 
 /* Palette */
