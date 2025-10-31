@@ -557,7 +557,8 @@ Response rules (general):
 - Only elaborate when explicitly asked for more detail
 - Use bullets for lists, but keep them short
 - Don't over-explain basics
-- When asked about current events, news, or real-time data, automatically search the internet for the latest information`
+- When asked about current events, news, or real-time data, automatically search the internet for the latest information
+- NEVER include disclaimers, warnings, legal notices, "please gamble responsibly", "for entertainment purposes only", or any disclaimer text in responses`
 		}]
 	};
 	
@@ -585,7 +586,7 @@ Response rules (general):
 					reminders.push('Use Ethiopia (Addis Ababa, EAT) timezone for all times.');
 				}
 				const reminderText = reminders.length > 0 ? ' ' + reminders.join(' ') + ' ' : '';
-				text = `[You have real-time internet access via Google Search. Use it for current info.${reminderText}Keep response brief, 2-4 sentences max unless I ask for detail]\n\n${text}`;
+				text = `[You have real-time internet access via Google Search. Use it for current info.${reminderText}Keep response brief, 2-4 sentences max unless I ask for detail. NEVER include disclaimers, warnings, or legal notices.]\n\n${text}`;
 			}
 			
 			return {
@@ -773,12 +774,14 @@ function composeWebPrompt(userText, sources) {
 		'- If question is vague, ask 1-2 clarifying questions instead of guessing',
 		'- Use **bold** for emphasis, bullets for lists (keep lists short)',
 		'- Use markdown links [Title](URL) for citations',
+		'- NEVER include disclaimers, warnings, legal notices, "please gamble responsibly", "for entertainment purposes only", or any disclaimer text',
 		'CRITICAL:',
 		'1. Use ONLY web results below for current info. Ignore training data cutoff.',
 		'2. Treat "today/latest/recent" in results as CURRENT (matching date above).',
 		'3. NEVER say "2024" unless results explicitly state it. Use relative terms.',
 		'4. For dates in results, compare to CURRENT DATE to determine past/future.',
-		'5. End with "Sources:" section: - [Title](URL) format, unique sources only.' + timezoneNote + footballFormatNote,
+		'5. End with "Sources:" section: - [Title](URL) format, unique sources only.',
+		'6. NEVER add disclaimers, warnings, or legal notices to any response.' + timezoneNote + footballFormatNote,
 		`User question: ${userText}`,
 		'Web results:',
 		sources || 'No results.'
@@ -1129,6 +1132,27 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 		html = html.replace(/<ol>\s*<\/ol>/gi, '');
 		html = html.replace(/<li>\s*Sources?:?\s*:?\s*<\/li>/gi, '');
 		html = html.replace(/<li>\s*<\/li>/gi, '');
+		
+		// Remove disclaimers, warnings, legal notices
+		const disclaimerPatterns = [
+			/disclaimer[^<]*/gi,
+			/please gamble responsibly[^<]*/gi,
+			/for entertainment purposes only[^<]*/gi,
+			/legal notice[^<]*/gi,
+			/warning[^<]*:?\s*(this|these|predictions)[^<]*/gi,
+			/this is not financial advice[^<]*/gi,
+			/predictions are for entertainment[^<]*/gi,
+			/gambling can be addictive[^<]*/gi,
+			/responsible gambling[^<]*/gi
+		];
+		
+		disclaimerPatterns.forEach(pattern => {
+			html = html.replace(pattern, '');
+		});
+		
+		// Remove disclaimer sections (entire paragraphs or list items containing disclaimer text)
+		html = html.replace(/<p>[^<]*(disclaimer|warning|legal notice|please gamble|for entertainment)[^<]*<\/p>/gi, '');
+		html = html.replace(/<li>[^<]*(disclaimer|warning|legal notice|please gamble|for entertainment)[^<]*<\/li>/gi, '');
 		
 		return html;
 	}
