@@ -25,6 +25,8 @@
 		palette: document.getElementById('commandPalette'),
 		commandInput: document.getElementById('commandInput'),
 		commandList: document.getElementById('commandList'),
+		sourcesModal: document.getElementById('sourcesModal'),
+		sourcesList: document.getElementById('sourcesList'),
 		historyList: document.getElementById('historyList'),
 		newChatBtn: document.getElementById('newChatBtn')
 	};
@@ -284,6 +286,29 @@ async function toggleVoice() {
 		if (els.sidebar) {
 			const isOpen = els.sidebar.classList.toggle('sidebar--open');
 			document.body.classList.toggle('sidebar-open', isOpen);
+		}
+	}
+
+	function showSourcesModal(sources, messageId) {
+		if (!sources || sources.length === 0) return;
+		if (!els.sourcesList || !els.sourcesModal) return;
+		
+		els.sourcesList.innerHTML = sources.map((s, i) => `
+			<div class="source-item">
+				<div class="source-item__number">${i + 1}</div>
+				<div class="source-item__content">
+					<div class="source-item__title">${escapeHtml(s.title || s.url)}</div>
+					<a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer" class="source-item__link">${escapeHtml(s.url)}</a>
+				</div>
+			</div>
+		`).join('');
+		
+		openSourcesModal(true);
+	}
+
+	function openSourcesModal(open) {
+		if (els.sourcesModal) {
+			els.sourcesModal.setAttribute('aria-hidden', open ? 'false' : 'true');
 		}
 	}
 
@@ -672,7 +697,14 @@ async function postJsonWithRetry(url, body, headers) {
 async function safeReadJson(res) { try { return await res.json(); } catch { return null; } }
 
 	function pushMessage(role, content) {
-		const msg = { id: generateId('msg'), role, content, formattedContent: role === 'assistant' ? formatContent(content) : null };
+		const sources = role === 'assistant' ? extractSources(content) : [];
+		const msg = { 
+			id: generateId('msg'), 
+			role, 
+			content, 
+			sources,
+			formattedContent: role === 'assistant' ? formatContent(content) : null 
+		};
 		state.messages.push(msg);
 		renderMessage(msg);
 		scrollToBottom();
@@ -733,7 +765,9 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 				<div class="content">${thinkingIndicator}${contentHtml}</div>
 			</div>
 		`;
-		wrap.addEventListener('click', (e) => onMessageToolbar(e, msg.id));
+		wrap.addEventListener('click', (e) => {
+			onMessageToolbar(e, msg.id);
+		});
 		els.messages.appendChild(wrap);
 	}
 
@@ -762,28 +796,70 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 		}
 	}
 
-	function formatContent(text) {
-		if (!text) return '';
+	function extractSources(text) {
+		if (!text) return [];
 		
 		// Extract sources section (everything after "Sources:" or "sources:")
-		let mainText = text;
-		let sourcesHtml = '';
 		const sourcesMatch = text.match(/Sources?:?\s*\n([\s\S]*)$/i);
+		if (!sourcesMatch) return [];
+		
+		const sourcesText = sourcesMatch[1].trim();
+		const sources = [];
+		
+		// Parse markdown links from sources: [title](url)
+		const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+		let match;
+		while ((match = markdownLinkRegex.exec(sourcesText)) !== null) {
+			sources.push({ title: match[1], url: match[2] });
+		}
+		
+		// Also extract plain URLs (starting with http:// or https://) if no markdown links found
+		if (sources.length === 0) {
+			const urlRegex = /(https?:\/\/[^\s\)]+)/g;
+			let urlMatch;
+			while ((urlMatch = urlRegex.exec(sourcesText)) !== null) {
+				const url = urlMatch[1].trim();
+				if (url) {
+					// Extract domain or last part as title
+					try {
+						const urlObj = new URL(url);
+						const title = urlObj.hostname.replace('www.', '') || url.substring(0, 50);
+						sources.push({ title: title, url: url });
+					} catch {
+						sources.push({ title: url.substring(0, 50), url: url });
+					}
+				}
+			}
+		}
+		
+		return sources;
+	}
+
+	function formatContent(text, extractSourcesOnly = false) {
+		if (!text) return '';
+		
+		// Extract sources section
+		const sources = extractSources(text);
+		let mainText = text;
+		
+		// Remove sources section from main text (more aggressive removal)
+		// Match "Sources:" or "sources:" followed by newline and everything after
+		const sourcesMatch = text.match(/Sources?:?\s*:?\s*\n([\s\S]*)$/i);
 		if (sourcesMatch) {
 			mainText = text.substring(0, sourcesMatch.index).trim();
-			const sourcesText = sourcesMatch[1].trim();
-			// Parse markdown links from sources
-			const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
-			const sources = [];
-			let match;
-			while ((match = linkRegex.exec(sourcesText)) !== null) {
-				sources.push({ title: match[1], url: match[2] });
-			}
-			if (sources.length > 0) {
-				sourcesHtml = '<div class="sources"><div class="sources-title">Sources</div><ul class="sources-list">' +
-					sources.map(s => `<li><a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(s.title)}</a></li>`).join('') +
-					'</ul></div>';
-			}
+		}
+		
+		// Also remove any standalone "Sources:" heading if it exists (anywhere in text)
+		mainText = mainText.replace(/^Sources?:?\s*:?\s*$/gim, '').trim();
+		
+		// Remove any "Sources:" followed by bullet points or list items
+		mainText = mainText.replace(/Sources?:?\s*:?\s*\n\s*[\*\-\d+\.]\s.*/gim, '').trim();
+		
+		// Remove any remaining "Sources:" text
+		mainText = mainText.replace(/Sources?:?\s*:?/gi, '').trim();
+		
+		if (extractSourcesOnly) {
+			return { sources, mainText: '' };
 		}
 		
 		// Escape HTML in main content first
@@ -809,8 +885,18 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 		// Inline code
 		html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
 		
-		// Links
-		html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+		// Links - but filter out source URLs
+		html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
+			// Remove source URLs (vertexai, grounding-api, etc.)
+			if (url.includes('vertexaisearch') || url.includes('grounding-api') || url.includes('vertexai')) {
+				return ''; // Remove entirely
+			}
+			return `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+		});
+		
+		// Also remove any plain source URLs that might remain
+		html = html.replace(/https?:\/\/[^\s\)<]*vertexai[^\s\)<]*/gi, '');
+		html = html.replace(/https?:\/\/[^\s\)<]*grounding-api[^\s\)<]*/gi, '');
 		
 		// Blockquotes
 		html = html.replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>');
@@ -820,33 +906,83 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 		let inList = false;
 		let listType = '';
 		let processedLines = [];
+		let skipNextList = false; // Flag to skip lists that come after "Sources:"
 		
 		for (let i = 0; i < lines.length; i++) {
 			const line = lines[i];
+			
+			// Check if this line contains "Sources:" - if so, skip it and mark to skip next list
+			if (line.match(/Sources?:?\s*:?/i)) {
+				skipNextList = true;
+				if (inList) {
+					processedLines.push(`</${listType}>`);
+					inList = false;
+					listType = '';
+				}
+				continue; // Skip the "Sources:" line entirely
+			}
+			
 			const ulMatch = line.match(/^[\*\-] (.*)$/);
 			const olMatch = line.match(/^\d+\. (.*)$/);
 			
 			if (ulMatch) {
+				const listItem = ulMatch[1].trim();
+				// Skip if it's a source URL, empty, or if we're in a sources list
+				if (skipNextList || !listItem || listItem.includes('vertexaisearch') || listItem.includes('grounding-api') || listItem.match(/^https?:\/\//)) {
+					// If we're skipping and list is empty, close any open list
+					if (inList && !listItem) {
+						processedLines.push(`</${listType}>`);
+						inList = false;
+						listType = '';
+					}
+					continue; // Skip this list item
+				}
+				// Reset skip flag once we find a valid non-source list item
+				if (listItem) skipNextList = false;
+				
 				if (!inList || listType !== 'ul') {
 					if (inList) processedLines.push(`</${listType}>`);
 					processedLines.push('<ul>');
 					inList = true;
 					listType = 'ul';
 				}
-				processedLines.push(`<li>${ulMatch[1]}</li>`);
+				processedLines.push(`<li>${listItem}</li>`);
 			} else if (olMatch) {
+				const listItem = olMatch[1].trim();
+				// Skip if it's a source URL, empty, or if we're in a sources list
+				if (skipNextList || !listItem || listItem.includes('vertexaisearch') || listItem.includes('grounding-api') || listItem.match(/^https?:\/\//)) {
+					// If we're skipping and list is empty, close any open list
+					if (inList && !listItem) {
+						processedLines.push(`</${listType}>`);
+						inList = false;
+						listType = '';
+					}
+					continue; // Skip this list item
+				}
+				// Reset skip flag once we find a valid non-source list item
+				if (listItem) skipNextList = false;
+				
 				if (!inList || listType !== 'ol') {
 					if (inList) processedLines.push(`</${listType}>`);
 					processedLines.push('<ol>');
 					inList = true;
 					listType = 'ol';
 				}
-				processedLines.push(`<li>${olMatch[1]}</li>`);
+				processedLines.push(`<li>${listItem}</li>`);
 			} else {
+				// Reset skip flag on non-list lines (unless it still says Sources)
+				if (!line.match(/Sources?:?\s*:?/i)) {
+					skipNextList = false;
+				}
+				
 				if (inList) {
 					processedLines.push(`</${listType}>`);
 					inList = false;
 					listType = '';
+				}
+				// Skip lines that are just URLs or Sources text
+				if (line.trim().match(/^https?:\/\/[^\s]*vertexai/i) || line.trim().match(/^https?:\/\/[^\s]*grounding-api/i) || line.trim().match(/Sources?:?\s*:?/i)) {
+					continue;
 				}
 				processedLines.push(line);
 			}
@@ -868,7 +1004,19 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 		// Single line breaks
 		html = html.replace(/\n/g, '<br/>');
 		
-		return html + sourcesHtml;
+		// Final cleanup: Remove any "Sources:" text and empty list items that might remain after HTML processing
+		html = html.replace(/<p>\s*Sources?:?\s*:?\s*<\/p>/gi, '');
+		html = html.replace(/Sources?:?\s*:?\s*(<br\/>)?/gi, '');
+		html = html.replace(/<p>\s*Sources?:?\s*:?\s*(<br\/>)?\s*<\/p>/gi, '');
+		html = html.replace(/<ul>\s*<li>\s*Sources?:?\s*:?\s*<\/li>\s*<\/ul>/gi, '');
+		html = html.replace(/<ul>\s*<li>\s*<\/li>\s*<\/ul>/gi, '');
+		html = html.replace(/<ul>\s*<\/ul>/gi, '');
+		html = html.replace(/<ol>\s*<li>\s*<\/li>\s*<\/ol>/gi, '');
+		html = html.replace(/<ol>\s*<\/ol>/gi, '');
+		html = html.replace(/<li>\s*Sources?:?\s*:?\s*<\/li>/gi, '');
+		html = html.replace(/<li>\s*<\/li>/gi, '');
+		
+		return html;
 	}
 	
 	function escapeHtml(text) {
@@ -913,6 +1061,7 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 			const msg = state.messages.find(m => m.id === targetId);
 			if (msg) {
 				msg.content = targetEl.textContent;
+				msg.sources = extractSources(msg.content);
 			}
 			persist();
 			return;
@@ -925,6 +1074,7 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 			const msg = state.messages.find(m => m.id === targetId);
 			if (msg) {
 				msg.content = content;
+				msg.sources = extractSources(content);
 				msg.formattedContent = formatted;
 			}
 			persist();
@@ -936,6 +1086,7 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 			const msg = state.messages.find(m => m.id === targetId);
 			if (msg) {
 				msg.content = targetEl.textContent || '';
+				msg.sources = extractSources(msg.content);
 				msg.formattedContent = errFormatted + mockFormatted;
 			}
 			persist();

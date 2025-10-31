@@ -135,6 +135,19 @@
 		</div>
 	</div>
 
+	<!-- Sources Modal -->
+	<div id="sourcesModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
+		<div class="modal__backdrop" data-close="sources-modal"></div>
+		<div class="modal__dialog">
+			<header class="modal__header">
+				<h2>Sources</h2>
+				<button class="icon-btn" data-close="sources-modal" title="Close" type="button" role="button"><svg class="i"><use href="#icon-x"></use></svg></button>
+			</header>
+			<div class="modal__body" id="sourcesList">
+			</div>
+		</div>
+	</div>
+
 	<!-- Match Analyzer Modal -->
 	<div id="matchModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
 		<div class="modal__backdrop" data-close="modal"></div>
@@ -214,6 +227,9 @@
 		<symbol id="icon-history" viewBox="0 0 24 24">
 			<circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.8"/>
 			<path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2"/>
+		</symbol>
+		<symbol id="icon-external" viewBox="0 0 24 24">
+			<path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/>
 		</symbol>
 	</svg>
 

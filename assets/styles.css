@@ -151,7 +151,7 @@ body {
 .palette__list li:hover { background: #121212; }
 
 /* Advanced Markdown styling */
-.bubble .content { line-height: 1.7; position: relative; }
+.bubble .content { line-height: 1.7; position: relative; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; }
 .thinking { display: flex; align-items: center; gap: 6px; padding: 8px 0; min-height: 24px; overflow: visible; }
 .thinking__dot { 
 	width: 8px; 
@@ -188,10 +188,16 @@ body {
 .bubble li { margin: 8px 0; color: #eaeaea; }
 .bubble a { color: #fff; text-decoration: underline; text-decoration-color: rgba(255,255,255,0.4); transition: text-decoration-color 0.2s; }
 .bubble a:hover { text-decoration-color: rgba(255,255,255,0.8); }
-.bubble .sources { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--edge); }
-.bubble .sources-title { font-size: 0.85em; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin-bottom: 10px; }
-.bubble .sources-list { list-style: none; padding: 0; margin: 0; }
-.bubble .sources-list li { margin: 6px 0; font-size: 0.9em; }
+.bubble .sources-container { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--edge); }
+.sources-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1px solid var(--edge); background: var(--glass); color: var(--fg); border-radius: var(--radius-xs); cursor: pointer; transition: all var(--speed); font-size: 13px; font-weight: 500; }
+.sources-btn:hover { background: var(--glass-2); transform: translateY(-1px); }
+.sources-btn .i { width: 16px; height: 16px; }
+.source-item { display: flex; gap: 12px; padding: 12px; border: 1px solid var(--edge); border-radius: var(--radius-xs); margin-bottom: 10px; background: var(--panel); }
+.source-item__number { width: 24px; height: 24px; border-radius: 50%; background: var(--glass); border: 1px solid var(--edge); display: grid; place-items: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+.source-item__content { flex: 1; min-width: 0; }
+.source-item__title { font-weight: 600; margin-bottom: 6px; color: var(--fg); word-wrap: break-word; }
+.source-item__link { font-size: 12px; color: var(--muted); text-decoration: none; word-break: break-all; display: block; }
+.source-item__link:hover { color: var(--fg); text-decoration: underline; }
 .bubble blockquote { border-left: 3px solid var(--muted); padding-left: 14px; margin: 12px 0; color: var(--muted); font-style: italic; }
 
 /* Responsive */
