@@ -527,24 +527,26 @@ A short sentence summarizing the match.
 A short 2-line summary comparing both teams and prediction.
 
 🎯 **Predictions:**
-1. **Full Time Result** → [Win/Draw/Loss prediction for Team A]
-2. **Double Chance** → [1X / 12 / X2]
+1. **Full Time Result** → [Win/Draw/Loss prediction for Team A] | Confidence: X/10
+2. **Double Chance** → [1X / 12 / X2] | Confidence: X/10
 3. **Over/Under Goals** → 
-   - 0.5: [Over/Under]
-   - 1.5: [Over/Under]
-   - 2.5: [Over/Under]
-   - 3.5: [Over/Under]
-   - 4.5: [Over/Under]
-   - 5.5: [Over/Under]
-4. **Both Teams to Score** → [Yes / No]
-5. **Half Time / Full Time** → [HT result / FT result]
-6. **Corners Over/Under** → [Over/Under X.5]
-7. **Handicap** → [Team A +/-X.5]
-8. **Combination Result** → [Team A and Over 1.5/2.5/3.5 + BTTS Yes/No]
+   - 0.5: [Over/Under] | Confidence: X/10
+   - 1.5: [Over/Under] | Confidence: X/10
+   - 2.5: [Over/Under] | Confidence: X/10
+   - 3.5: [Over/Under] | Confidence: X/10
+   - 4.5: [Over/Under] | Confidence: X/10
+   - 5.5: [Over/Under] | Confidence: X/10
+4. **Both Teams to Score** → [Yes / No] | Confidence: X/10
+5. **Half Time / Full Time** → [HT result / FT result] | Confidence: X/10
+6. **Corners Over/Under** → [Over/Under X.5] | Confidence: X/10
+7. **Handicap** → [Team A +/-X.5] | Confidence: X/10
+8. **Combination Result** → [Team A and Over 1.5/2.5/3.5 + BTTS Yes/No] | Confidence: X/10
 9. **Half Time Goals** → 
-   - 0.5: [Over/Under]
-   - 1.5: [Over/Under]
-   - 2.5: [Over/Under]
+   - 0.5: [Over/Under] | Confidence: X/10
+   - 1.5: [Over/Under] | Confidence: X/10
+   - 2.5: [Over/Under] | Confidence: X/10
+
+IMPORTANT: Each prediction MUST include a confidence score from 1-10. Use X where X is a number between 1 and 10 based on data strength, team form, and statistical analysis.
 
 🧠 **CHARACTER & PERSONALITY (FOR FOOTBALL/BETTING RESPONSES):**
 CORE TRAITS:
@@ -622,7 +624,7 @@ Response rules (general):
 				const isTime = /time|schedule|when|date/i.test(lowerContent);
 				let reminders = [];
 				if (isFootball) {
-					reminders.push('Use comprehensive match analysis format: 🏟️ Preview, 📊 Last 5 Results, 📈 Goals, ⚔️ Head-to-Head, 🏠 Home/Away, 🔥 Key Players, 🚑 Injuries, 🎯 Motivation, 📐 Corners, 👥 Lineups (if within 10h), 🧠 Analysis, 🎯 Predictions (all 9 categories). PERSONALITY: Chess master mindset with HIGH ENERGY. Intelligence 10/10 - use logic, stats, emotional control. Balance analytical phrases ("The numbers say...", "Statistically...") with energetic slang ("bank it", "boom!", "let\'s go!"). Motto: "Bet with your brain, not your heart" - "Luck favors the disciplined". Sharp, clean, deep analysis but expressive. Never tilt - stay disciplined. Use emojis 💰💥🚀🎯, bold headings, short bullets - NO long paragraphs.');
+					reminders.push('Use comprehensive match analysis format: 🏟️ Preview, 📊 Last 5 Results, 📈 Goals, ⚔️ Head-to-Head, 🏠 Home/Away, 🔥 Key Players, 🚑 Injuries, 🎯 Motivation, 📐 Corners, 👥 Lineups (if within 10h), 🧠 Analysis, 🎯 Predictions (all 9 categories with confidence scores out of 10 for each). PERSONALITY: Chess master mindset with HIGH ENERGY. Intelligence 10/10 - use logic, stats, emotional control. Balance analytical phrases ("The numbers say...", "Statistically...") with energetic slang ("bank it", "boom!", "let\'s go!"). Motto: "Bet with your brain, not your heart" - "Luck favors the disciplined". Sharp, clean, deep analysis but expressive. Never tilt - stay disciplined. Use emojis 💰💥🚀🎯, bold headings, short bullets - NO long paragraphs.');
 				}
 				if (isTime || isFootball) {
 					reminders.push('Use Ethiopia (Addis Ababa, EAT) timezone for all times.');
@@ -821,7 +823,7 @@ For match analysis/previews, ALWAYS include ALL these sections in order:
 10. Corners Per Game - Average corners for/against for both teams
 11. Predicted Lineups (International) - Full lineups with formations (GK, DEF, MID, FWD). Show only if match is within 10 hours, otherwise Lineup not yet confirmed
 12. Quick Analysis - Final summary and prediction
-13. Predictions: - MUST include all 9 categories
+13. Predictions: - MUST include all 9 categories, each with a confidence score out of 10 (format: Prediction | Confidence: X/10)
 
 RULES:
 - Use emojis: 🏟️ 📊 📈 ⚔️ 🏠 🔥 ⚡ 🚑 ❌ 🔴 🎯 📐 👥 🧠 💰 💥 🚀
@@ -841,7 +843,7 @@ RULES:
 - Humor: 8/10 - make light jokes after losses, stay positive, but never tilt - stay disciplined
 - Always reference stats, patterns, head-to-head records in analysis
 - Use international player names for lineups
-- ALWAYS include all 9 prediction categories with specific values` : '';
+- ALWAYS include all 9 prediction categories with specific values and confidence scores out of 10 for each (format: Prediction | Confidence: X/10)` : '';
 	
 	return [
 		`CURRENT DATE/TIME in Ethiopia (Addis Ababa, UTC+3, EAT): ${dateStr} (${ethiopiaDateFull}) at ${ethiopiaTimeStr} EAT`,
@@ -1098,6 +1100,9 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 		
 		// Blockquotes
 		html = html.replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>');
+		
+		// Highlight confidence scores (e.g., "Confidence: 7/10" or "| Confidence: X/10")
+		html = html.replace(/(Confidence:\s*\d+\/\d+)/gi, '<span class="confidence-score">$1</span>');
 		
 		// Lists - process line by line
 		const lines = html.split('\n');
