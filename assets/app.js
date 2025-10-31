@@ -55,7 +55,7 @@ const DEFAULT_COMMANDS = [
 	let state = {
 		messages: [], // {id, role:"user|assistant", content, formattedContent}
 		history: [], // {id, title, ts, messagesLen, messages}
-		settings: { apiKey: 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4', model: 'gemini-2.5-pro', provider: 'gemini', speechEngine: 'browser', searchProvider: 'serper', searchKey: '', searchAuto: true, searchWiki: true },
+		settings: { apiKey: 'AIzaSyAmUENTunN37snDBhjHDXm4xgDHN6BdbOg', model: 'gemini-2.5-pro', provider: 'gemini', speechEngine: 'browser', searchProvider: 'serper', searchKey: '', searchAuto: true, searchWiki: true },
 		currentId: generateId('chat'),
 		scrollPosition: 0
 	};
@@ -69,7 +69,7 @@ const DEFAULT_COMMANDS = [
 	}
 
 // Force Gemini 2.5 Pro with user's API key (always override)
-state.settings.apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
+state.settings.apiKey = 'AIzaSyAmUENTunN37snDBhjHDXm4xgDHN6BdbOg';
 state.settings.provider = 'gemini';
 state.settings.model = 'gemini-2.5-pro';
 
@@ -191,7 +191,7 @@ try { console.debug('BetAI: app initialized'); } catch {}
 	}
 	function saveSettings() {
 		// Force Gemini 2.5 Pro always
-		state.settings.apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
+		state.settings.apiKey = 'AIzaSyAmUENTunN37snDBhjHDXm4xgDHN6BdbOg';
 		state.settings.model = 'gemini-2.5-pro';
 		state.settings.provider = 'gemini';
 		state.settings.speechEngine = (els.speechEngine?.value || 'browser');
@@ -400,7 +400,7 @@ function runMatchAnalysis() {
 
 	async function transcribeWithGemini(audioBlob) {
 		// Force Gemini 2.5 Pro
-		const apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
+		const apiKey = 'AIzaSyAmUENTunN37snDBhjHDXm4xgDHN6BdbOg';
 		const model = 'gemini-2.5-pro';
 		const base64 = await blobToBase64(audioBlob);
 		const mime = audioBlob.type || 'audio/webm';
@@ -1239,7 +1239,7 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 
 	async function streamAssistantResponse(targetId, isRegen = false) {
 		// ALWAYS use Gemini 2.5 Pro - force it
-		const apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
+		const apiKey = 'AIzaSyAmUENTunN37snDBhjHDXm4xgDHN6BdbOg';
 		const model = 'gemini-2.5-pro';
 		state.settings.provider = 'gemini';
 		state.settings.apiKey = apiKey;
