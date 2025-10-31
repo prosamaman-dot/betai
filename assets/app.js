@@ -445,7 +445,14 @@ async function callGeminiChat(apiKey, model, messages) {
 	
 	const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model.trim())}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
 	const now = new Date();
-	const dateContext = `[Current date: ${now.toISOString().split('T')[0]} (${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })})]`;
+	
+	// Get Ethiopia (Addis Ababa) time - UTC+3 (EAT - East Africa Time)
+	const ethiopiaOptions = { timeZone: 'Africa/Addis_Ababa', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false };
+	const ethiopiaDateFull = now.toLocaleDateString('en-US', { timeZone: 'Africa/Addis_Ababa', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+	const ethiopiaTimeStr = now.toLocaleTimeString('en-US', { timeZone: 'Africa/Addis_Ababa', hour: '2-digit', minute: '2-digit', hour12: false });
+	const ethiopiaDateStr = now.toLocaleDateString('en-US', { timeZone: 'Africa/Addis_Ababa', year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
+	
+	const dateContext = `[Current date/time in Ethiopia (Addis Ababa, UTC+3, EAT): ${ethiopiaDateFull} at ${ethiopiaTimeStr} EAT]`;
 	
 	// System instruction for concise, question-driven responses
 	const systemInstruction = {
@@ -454,7 +461,96 @@ async function callGeminiChat(apiKey, model, messages) {
 			text: `You are a concise assistant with REAL-TIME INTERNET ACCESS via Google Search. 
 IMPORTANT: You have access to live internet data and can search for current information. Use Google Search when needed for real-time data.
 
-Response rules:
+CRITICAL TIMEZONE RULES:
+- ALWAYS use Ethiopia (Addis Ababa) local time (EAT, UTC+3) when mentioning times, dates, or schedules
+- When talking about football matches, game times, kickoff times, or match schedules, convert all times to Ethiopia (Addis Ababa) timezone
+- Format times as: "HH:MM EAT" or "HH:MM Ethiopia time"
+- Current date/time in Ethiopia: ${ethiopiaDateFull} at ${ethiopiaTimeStr} EAT
+
+FOOTBALL/MATCH RESPONSE FORMAT (MANDATORY):
+When responding about match previews, players, injuries, or team info, ALWAYS use this structured format:
+
+🏟️ **Match Preview**
+A short sentence summarizing the match.
+
+📊 **Last 5 Results**
+- **[Team A]**: W-D-L-W-L (show recent form: Win/Draw/Loss)
+- **[Team B]**: W-W-D-L-W
+
+📈 **Goals Scored & Conceded**
+- **[Team A]**: Scored: X, Conceded: Y (average per game: X.X)
+- **[Team B]**: Scored: X, Conceded: Y (average per game: X.X)
+
+⚔️ **Head-to-Head Record**
+- Last 5 meetings: [Team A] X wins, [Team B] X wins, X draws
+- Last meeting: Date, score, venue
+
+🏠 **Home vs Away Advantage**
+- **[Team A]**: Home record: X wins, X draws, X losses
+- **[Team B]**: Away record: X wins, X draws, X losses
+
+🔥 **Key Players – [Team Name]**
+- Position: Player Name (note if top scorer/playmaker)
+
+⚡ **Key Players – [Team Name]**
+- Position: Player Name (note if top scorer/playmaker)
+
+🚑 **Injuries & Suspensions – [Team Name]**
+- ❌ Player Name (injury type/suspension reason)
+- 🔴 Player Name (red card suspension)
+
+🎯 **Team Motivation**
+- **[Team A]**: League position, must-win situation, recent form context
+- **[Team B]**: League position, must-win situation, recent form context
+
+📐 **Corners Per Game**
+- **[Team A]**: Average X.X corners per game (for/against)
+- **[Team B]**: Average X.X corners per game (for/against)
+
+👥 **Predicted Lineups (International)**
+- **[Team A]** (4-3-3 or formation):
+  - GK: Player Name
+  - DEF: Player Name, Player Name, Player Name, Player Name
+  - MID: Player Name, Player Name, Player Name
+  - FWD: Player Name, Player Name, Player Name
+- **[Team B]** (formation):
+  - [Same format]
+
+🧠 **Quick Analysis**
+A short 2-line summary comparing both teams and prediction.
+
+🎯 **Predictions:**
+1. **Full Time Result** → [Win/Draw/Loss prediction for Team A]
+2. **Double Chance** → [1X / 12 / X2]
+3. **Over/Under Goals** → 
+   - 0.5: [Over/Under]
+   - 1.5: [Over/Under]
+   - 2.5: [Over/Under]
+   - 3.5: [Over/Under]
+   - 4.5: [Over/Under]
+   - 5.5: [Over/Under]
+4. **Both Teams to Score** → [Yes / No]
+5. **Half Time / Full Time** → [HT result / FT result]
+6. **Corners Over/Under** → [Over/Under X.5]
+7. **Handicap** → [Team A +/-X.5]
+8. **Combination Result** → [Team A and Over 1.5/2.5/3.5 + BTTS Yes/No]
+9. **Half Time Goals** → 
+   - 0.5: [Over/Under]
+   - 1.5: [Over/Under]
+   - 2.5: [Over/Under]
+
+RULES:
+- NEVER write long paragraphs for football/match info
+- Always use emojis (🏟️ 📊 📈 ⚔️ 🏠 🔥 ⚡ 🚑 ❌ 🔴 🎯 📐 👥 🧠)
+- Use bold headings: **Heading Name**
+- Use short bullet points, not sentences
+- One fact per bullet point
+- Keep tone concise, professional, like a sports journalist
+- Always separate teams into clear sections
+- For lineup predictions, use international player names and standard formations
+- Show lineup prediction if match is within 10 hours, otherwise show "Lineup not yet confirmed"
+
+Response rules (general):
 - Keep responses brief (2-4 sentences max unless asked for detail)
 - Answer the question directly, avoid unnecessary context
 - If the question is vague or broad, ask 1-2 clarifying questions instead of guessing
@@ -478,7 +574,18 @@ Response rules:
 			
 			// Add brief conciseness reminder to user messages (keeps AI concise throughout)
 			if (m.role === 'user' && !m.content.includes('CURRENT DATE/TIME') && !m.content.includes('You are a concise')) {
-				text = `[You have real-time internet access via Google Search. Use it for current info. Keep response brief, 2-4 sentences max unless I ask for detail]\n\n${text}`;
+				const lowerContent = text.toLowerCase();
+				const isFootball = /football|soccer|match|game|kickoff|player|injury|suspension|preview|team|league|analysis|analyze|prediction|predict/i.test(lowerContent);
+				const isTime = /time|schedule|when|date/i.test(lowerContent);
+				let reminders = [];
+				if (isFootball) {
+					reminders.push('Use comprehensive match analysis format: 🏟️ Preview, 📊 Last 5 Results, 📈 Goals, ⚔️ Head-to-Head, 🏠 Home/Away, 🔥 Key Players, 🚑 Injuries, 🎯 Motivation, 📐 Corners, 👥 Lineups (if within 10h), 🧠 Analysis, 🎯 Predictions (all 9 categories). Use emojis, bold headings, short bullets - NO long paragraphs.');
+				}
+				if (isTime || isFootball) {
+					reminders.push('Use Ethiopia (Addis Ababa, EAT) timezone for all times.');
+				}
+				const reminderText = reminders.length > 0 ? ' ' + reminders.join(' ') + ' ' : '';
+				text = `[You have real-time internet access via Google Search. Use it for current info.${reminderText}Keep response brief, 2-4 sentences max unless I ask for detail]\n\n${text}`;
 			}
 			
 			return {
@@ -648,11 +755,18 @@ async function webSearchWikipedia(query) {
 
 function composeWebPrompt(userText, sources) {
 	const now = new Date();
-	const dateStr = now.toISOString().split('T')[0];
-	const dateFull = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-	const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+	// Get Ethiopia (Addis Ababa) time - UTC+3 (EAT)
+	const ethiopiaDateFull = now.toLocaleDateString('en-US', { timeZone: 'Africa/Addis_Ababa', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+	const ethiopiaTimeStr = now.toLocaleTimeString('en-US', { timeZone: 'Africa/Addis_Ababa', hour: '2-digit', minute: '2-digit', hour12: false });
+	const dateStr = now.toLocaleDateString('en-US', { timeZone: 'Africa/Addis_Ababa', year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
+	
+	const isFootball = /football|soccer|match|game|kickoff|player|injury|suspension|preview|team|league|analysis|analyze|prediction|predict/i.test(userText);
+	const isTime = /time|schedule|when|date/i.test(userText);
+	const timezoneNote = (isTime || isFootball) ? '\n6. For football matches, schedules, or any time-related info, ALWAYS convert and show times in Ethiopia (Addis Ababa, EAT, UTC+3) timezone. Format as "HH:MM EAT" or "HH:MM Ethiopia time".' : '';
+	const footballFormatNote = isFootball ? '\n\nFOOTBALL/MATCH ANALYSIS FORMAT (MANDATORY):\nFor match analysis/previews, ALWAYS include ALL these sections in order:\n1. 🏟️ **Match Preview** - Short summary\n2. 📊 **Last 5 Results** - Both teams recent form (W-D-L format)\n3. 📈 **Goals Scored & Conceded** - Per team with averages\n4. ⚔️ **Head-to-Head Record** - Last 5 meetings, last match details\n5. 🏠 **Home vs Away Advantage** - Home/away records for both teams\n6. 🔥 **Key Players – [Team Name]** - Position and role\n7. ⚡ **Key Players – [Team Name]** - Second team\n8. 🚑 **Injuries & Suspensions – [Team Name]** - Both teams\n9. 🎯 **Team Motivation** - League position, must-win situations, context\n10. 📐 **Corners Per Game** - Average corners for/against for both teams\n11. 👥 **Predicted Lineups (International)** - Full lineups with formations (GK, DEF, MID, FWD). Show only if match is within 10 hours, otherwise "Lineup not yet confirmed"\n12. 🧠 **Quick Analysis** - Final summary and prediction\n13. 🎯 **Predictions:** - MUST include:\n   1. Full Time Result → [Win/Draw/Loss for Team A]\n   2. Double Chance → [1X / 12 / X2]\n   3. Over/Under Goals → 0.5/1.5/2.5/3.5/4.5/5.5 [Over/Under for each]\n   4. Both Teams to Score → [Yes / No]\n   5. Half Time / Full Time → [HT result / FT result]\n   6. Corners Over/Under → [Over/Under X.5]\n   7. Handicap → [Team A +/-X.5]\n   8. Combination Result → [Team A and Over 1.5/2.5/3.5 + BTTS Yes/No]\n   9. Half Time Goals → 0.5/1.5/2.5 [Over/Under for each]\n\nRULES:\n- Use emojis: 🏟️ 📊 📈 ⚔️ 🏠 🔥 ⚡ 🚑 ❌ 🔴 🎯 📐 👥 🧠\n- Bold headings: **Heading Name**\n- Short bullet points, NO long paragraphs\n- One fact per bullet\n- Professional, concise sports journalist tone\n- Use international player names for lineups\n- ALWAYS include all 9 prediction categories with specific values' : '';
+	
 	return [
-		`CURRENT DATE/TIME: ${dateStr} (${dateFull}) at ${timeStr}`,
+		`CURRENT DATE/TIME in Ethiopia (Addis Ababa, UTC+3, EAT): ${dateStr} (${ethiopiaDateFull}) at ${ethiopiaTimeStr} EAT`,
 		'You are a concise assistant. Keep responses brief (2-4 sentences max unless user asks for detail).',
 		'RESPONSE RULES:',
 		'- Answer directly, no fluff',
@@ -664,7 +778,7 @@ function composeWebPrompt(userText, sources) {
 		'2. Treat "today/latest/recent" in results as CURRENT (matching date above).',
 		'3. NEVER say "2024" unless results explicitly state it. Use relative terms.',
 		'4. For dates in results, compare to CURRENT DATE to determine past/future.',
-		'5. End with "Sources:" section: - [Title](URL) format, unique sources only.',
+		'5. End with "Sources:" section: - [Title](URL) format, unique sources only.' + timezoneNote + footballFormatNote,
 		`User question: ${userText}`,
 		'Web results:',
 		sources || 'No results.'
@@ -1206,23 +1320,120 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 	}
 	function summarizeTitle(text) {
 		if (!text) return 'New Chat';
-		// Clean up the text - remove markdown, extra whitespace, etc.
+		
+		// Clean up the text
 		let clean = text.replace(/\*\*/g, '').replace(/`/g, '').replace(/#{1,6}\s/g, '').trim();
 		clean = clean.replace(/\n+/g, ' ').replace(/\s+/g, ' ');
-		// Take first 50 characters, truncate at word boundary if possible
-		if (clean.length <= 50) return clean;
-		const truncated = clean.slice(0, 50);
-		const lastSpace = truncated.lastIndexOf(' ');
-		return lastSpace > 30 ? truncated.slice(0, lastSpace) + '…' : truncated + '…';
+		clean = clean.replace(/[?!.,;:]+$/, '').trim(); // Remove trailing punctuation
+		
+		// Remove common filler words/phrases
+		const fillers = [
+			/^(ok|okay|hey|hi|hello|hey there|please|can you|could you|will you|would you|i want|i need|tell me|what is|who is|where is|when is|how is|show me|give me|explain|help me with)/i,
+			/\b(right now|currently|today|now|at the moment|i want to know|i am asking|i asked|just|really|actually|basically)\b/gi
+		];
+		
+		clean = fillers.reduce((acc, regex) => acc.replace(regex, ''), clean);
+		clean = clean.replace(/\s+/g, ' ').trim();
+		
+		// Extract key phrases - look for important keywords
+		const lowerClean = clean.toLowerCase();
+		
+		// Common patterns for smart titles
+		const patterns = [
+			{ regex: /\b(america|us|united states|usa)\s*(president|potus)\b/i, title: 'US President' },
+			{ regex: /\b(football|soccer|match|game|premier league|la liga)\b/i, title: 'Football' },
+			{ regex: /\b(weather|temperature|forecast)\b/i, title: 'Weather' },
+			{ regex: /\b(news|breaking|latest|current events)\b/i, title: 'News' },
+			{ regex: /\b(code|programming|javascript|python|html|css)\b/i, title: 'Code Help' },
+			{ regex: /\b(explain|how|what|why|definition)\b/i, title: 'Question' },
+			{ regex: /\b(translate|language)\b/i, title: 'Translation' }
+		];
+		
+		for (const pattern of patterns) {
+			if (pattern.regex.test(clean)) {
+				return pattern.title;
+			}
+		}
+		
+		// If it's a question starting with "who", extract the subject
+		if (/^who\s+(is|are|was|were)\s+(the\s+)?/i.test(clean)) {
+			const match = clean.match(/^who\s+(is|are|was|were)\s+(the\s+)?(.+?)(\?|$)/i);
+			if (match && match[3]) {
+				let title = match[3].trim();
+				// Capitalize first letter
+				title = title.charAt(0).toUpperCase() + title.slice(1);
+				if (title.length > 35) title = title.substring(0, 32) + '...';
+				return title;
+			}
+		}
+		
+		// If it's a "what is" question, extract the subject
+		if (/^what\s+(is|are|was|were)\s+(the\s+)?/i.test(clean)) {
+			const match = clean.match(/^what\s+(is|are|was|were)\s+(the\s+)?(.+?)(\?|$)/i);
+			if (match && match[3]) {
+				let title = match[3].trim();
+				title = title.charAt(0).toUpperCase() + title.slice(1);
+				if (title.length > 35) title = title.substring(0, 32) + '...';
+				return title;
+			}
+		}
+		
+		// Extract first 3-5 significant words (skip articles, prepositions)
+		const words = clean.split(/\s+/);
+		const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they']);
+		
+		const significantWords = words.filter(w => w.length > 2 && !stopWords.has(w.toLowerCase())).slice(0, 5);
+		
+		if (significantWords.length > 0) {
+			let title = significantWords.join(' ');
+			// Capitalize first letter
+			title = title.charAt(0).toUpperCase() + title.slice(1);
+			// Limit to 40 characters
+			if (title.length > 40) {
+				title = title.substring(0, 37) + '...';
+			}
+			return title;
+		}
+		
+		// Fallback: first 40 characters
+		if (clean.length <= 40) return clean;
+		return clean.substring(0, 37) + '...';
 	}
 	function populateHistory() {
 		els.historyList.innerHTML = '';
 		state.history.slice(0, 16).forEach(h => {
 			const li = document.createElement('li');
-			li.innerHTML = `<span>${h.title}</span><span>${new Date(h.ts).toLocaleDateString()}</span>`;
-			li.addEventListener('click', () => loadHistory(h.id));
+			li.innerHTML = `
+				<span>${h.title}</span>
+				<div style="display: flex; align-items: center; gap: 8px; margin-left: auto;">
+					<span>${new Date(h.ts).toLocaleDateString()}</span>
+					<button class="history-delete-btn" data-history-id="${h.id}" title="Delete" aria-label="Delete history item">
+						<svg class="i"><use href="#icon-trash"></use></svg>
+					</button>
+				</div>
+			`;
+			li.addEventListener('click', (e) => {
+				// Don't load if clicking the delete button
+				if (!e.target.closest('.history-delete-btn')) {
+					loadHistory(h.id);
+				}
+			});
+			// Add delete functionality
+			const deleteBtn = li.querySelector('.history-delete-btn');
+			if (deleteBtn) {
+				deleteBtn.addEventListener('click', (e) => {
+					e.stopPropagation();
+					deleteHistoryItem(h.id);
+				});
+			}
 			els.historyList.appendChild(li);
 		});
+	}
+
+	function deleteHistoryItem(id) {
+		state.history = state.history.filter(x => x.id !== id);
+		persist();
+		populateHistory();
 	}
 	function loadHistory(id) {
 		const item = state.history.find(x => x.id === id);
