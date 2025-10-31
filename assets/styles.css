@@ -55,6 +55,7 @@ body {
 	position: sticky; top: 0; background: linear-gradient(180deg, rgba(10,10,10,0.9), rgba(10,10,10,0.6)); backdrop-filter: blur(6px);
 	z-index: 2;
 }
+.mobile-close-btn { display: none; }
 .logo { position: relative; display: inline-flex; align-items: center; gap: 10px; cursor: default; }
 .logo__core { width: 14px; height: 14px; border-radius: 50%; background: var(--fg); box-shadow: 0 0 20px rgba(255,255,255,0.2) inset; }
 .logo__orbit { position: absolute; width: 28px; height: 28px; border-radius: 50%; border: 1px dashed rgba(255,255,255,0.25); left: -7px; top: -7px; animation: orbit 10s linear infinite; opacity: 0.7; }
@@ -67,6 +68,8 @@ body {
 .i--plane { width: 16px; height: 16px; }
 
 .sidebar__section { margin-top: 14px; padding: 8px; border-top: 1px dashed var(--edge); }
+.new-chat-btn { width: 100%; height: 40px; padding: 0 14px; border: 1px solid var(--edge); background: var(--glass); color: var(--fg); border-radius: var(--radius-xs); cursor: pointer; transition: background var(--speed), transform var(--speed); display: flex; align-items: center; justify-content: center; font-weight: 600; }
+.new-chat-btn:hover { background: #121212; transform: translateY(-1px); }
 .sidebar__section--history { position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 16px 16px 16px; background: linear-gradient(0deg, rgba(10,10,10,0.95), rgba(10,10,10,0)); }
 .section__title { font-size: 12px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin: 2px 0 10px; }
 
@@ -80,6 +83,11 @@ body {
 .panel { display: grid; grid-template-rows: auto 1fr auto; height: 100vh; }
 .panel__header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--edge); background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)); position: sticky; top: 0; z-index: 2; backdrop-filter: blur(6px); }
 .title { display: flex; align-items: center; gap: 14px; }
+.mobile-history-btn { display: none; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--edge); background: var(--glass); color: var(--fg); cursor: pointer; transition: all var(--speed); place-items: center; position: relative; }
+.mobile-history-btn:hover { background: var(--glass-2); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,255,255,0.1); }
+.mobile-history-btn:active { transform: scale(0.95); }
+.mobile-history-btn .i { width: 20px; height: 20px; transition: transform var(--speed); }
+.mobile-history-btn:hover .i { transform: rotate(15deg); }
 .title__line { width: 26px; height: 2px; background: var(--fg); display: inline-block; box-shadow: 12px 0 0 0 #fff inset; }
 .panel__header h1 { font-size: 16px; font-weight: 700; margin: 0; }
 
@@ -90,11 +98,14 @@ body {
 .ghost-btn.listening .i { transform-origin: center; animation: mic-breathe 1.4s ease-in-out infinite; }
 
 .messages { padding: 24px; overflow: auto; display: grid; gap: 16px; align-content: start; }
-.message { display: grid; grid-template-columns: 40px 1fr; gap: 12px; }
-.avatar { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: linear-gradient(180deg, #111, #0b0b0b); display: grid; place-items: center; color: var(--muted); font-weight: 700; }
-.bubble { border: 1px solid var(--edge); background: var(--panel); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); position: relative; }
+.message { display: flex; width: 100%; }
+.message--assistant { justify-content: flex-start; }
+.message--user { justify-content: flex-end; }
+.bubble { border: 1px solid var(--edge); background: var(--panel); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); position: relative; max-width: 75%; }
 .bubble--user { background: #0d0d0d; }
-.bubble__toolbar { position: absolute; top: -14px; right: 8px; display: flex; gap: 6px; opacity: 0; transition: opacity var(--speed); }
+.bubble__toolbar { position: absolute; top: -14px; display: flex; gap: 6px; opacity: 0; transition: opacity var(--speed); }
+.message--assistant .bubble__toolbar { right: 8px; }
+.message--user .bubble__toolbar { left: 8px; }
 .message:hover .bubble__toolbar { opacity: 1; }
 .bubble__btn { height: 28px; width: 34px; padding: 0; border: 1px solid var(--edge); background: var(--glass); color: var(--fg); border-radius: 999px; cursor: pointer; display: grid; place-items: center; }
 .bubble__btn:hover { background: var(--glass-2); }
@@ -139,18 +150,84 @@ body {
 .palette__list li { border: 1px solid var(--edge); background: var(--panel); padding: 10px 12px; border-radius: var(--radius-xs); cursor: pointer; }
 .palette__list li:hover { background: #121212; }
 
-/* Markdown-like basics */
-.bubble h1, .bubble h2, .bubble h3 { margin: 8px 0; }
-.bubble p { margin: 8px 0; color: #eaeaea; }
-.bubble code { background: #0a0a0a; border: 1px solid var(--edge); padding: 2px 6px; border-radius: 6px; }
-.bubble pre { background: #0a0a0a; border: 1px solid var(--edge); padding: 12px; border-radius: 8px; overflow: auto; }
-.bubble ul { margin: 8px 0; padding-left: 18px; }
-.bubble li { margin: 6px 0; }
+/* Advanced Markdown styling */
+.bubble .content { line-height: 1.7; position: relative; }
+.thinking { display: flex; align-items: center; gap: 6px; padding: 8px 0; min-height: 24px; overflow: visible; }
+.thinking__dot { 
+	width: 8px; 
+	height: 8px; 
+	border-radius: 50%; 
+	background: var(--muted); 
+	animation: thinking-pulse 1.4s cubic-bezier(0.4, 0, 0.6, 1) infinite; 
+	transform-origin: center;
+}
+.thinking__dot:nth-child(1) { animation-delay: 0s; }
+.thinking__dot:nth-child(2) { animation-delay: 0.2s; }
+.thinking__dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes thinking-pulse {
+	0%, 100% { 
+		opacity: 0.3; 
+		transform: translateY(0) scale(0.9); 
+	}
+	50% { 
+		opacity: 1; 
+		transform: translateY(-4px) scale(1.1); 
+	}
+}
+.bubble h1, .bubble h2, .bubble h3 { margin: 16px 0 10px 0; font-weight: 700; }
+.bubble h1 { font-size: 1.5em; }
+.bubble h2 { font-size: 1.3em; }
+.bubble h3 { font-size: 1.1em; }
+.bubble p { margin: 10px 0; color: #eaeaea; }
+.bubble strong { font-weight: 700; color: #fff; }
+.bubble em { font-style: italic; color: #d0d0d0; }
+.bubble code { background: #0a0a0a; border: 1px solid var(--edge); padding: 3px 8px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 0.9em; color: #fff; }
+.bubble pre { background: #0a0a0a; border: 1px solid var(--edge); padding: 14px; border-radius: 10px; overflow: auto; margin: 12px 0; }
+.bubble pre code { background: transparent; border: 0; padding: 0; }
+.bubble ul, .bubble ol { margin: 12px 0; padding-left: 24px; }
+.bubble li { margin: 8px 0; color: #eaeaea; }
+.bubble a { color: #fff; text-decoration: underline; text-decoration-color: rgba(255,255,255,0.4); transition: text-decoration-color 0.2s; }
+.bubble a:hover { text-decoration-color: rgba(255,255,255,0.8); }
+.bubble .sources { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--edge); }
+.bubble .sources-title { font-size: 0.85em; text-transform: uppercase; letter-spacing: 1.2px; color: var(--muted); margin-bottom: 10px; }
+.bubble .sources-list { list-style: none; padding: 0; margin: 0; }
+.bubble .sources-list li { margin: 6px 0; font-size: 0.9em; }
+.bubble blockquote { border-left: 3px solid var(--muted); padding-left: 14px; margin: 12px 0; color: var(--muted); font-style: italic; }
 
 /* Responsive */
 @media (max-width: 980px) {
 	.app { grid-template-columns: 1fr; }
-	.sidebar { display: none; }
+	.sidebar { 
+		position: fixed; 
+		left: -100%; 
+		top: 0; 
+		height: 100vh; 
+		width: 320px; 
+		z-index: 1000; 
+		transition: left 0.3s ease;
+		background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.0));
+		box-shadow: 2px 0 20px rgba(0,0,0,0.5);
+	}
+	.sidebar--open { left: 0; }
+	.mobile-history-btn { display: grid; }
+	.mobile-close-btn { display: grid !important; }
+	body.sidebar-open::before {
+		content: '';
+		position: fixed;
+		inset: 0;
+		background: rgba(0,0,0,0.5);
+		backdrop-filter: blur(4px);
+		z-index: 999;
+		pointer-events: all;
+	}
+}
+@media (max-width: 768px) {
+	.messages { padding: 16px; }
+	.bubble { max-width: 90%; }
+}
+@media (max-width: 480px) {
+	.messages { padding: 12px; }
+	.bubble { max-width: 95%; padding: 12px 14px; }
 }
 
 @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0.18); } 50% { box-shadow: 0 0 0 6px rgba(255,255,255,0.0); } }

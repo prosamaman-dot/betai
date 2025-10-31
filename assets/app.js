@@ -9,6 +9,9 @@
 		attach: document.getElementById('attach'),
 		openCommand: document.getElementById('openCommand'),
 		openSettings: document.getElementById('openSettings'),
+		toggleHistory: document.getElementById('toggleHistory'),
+		closeSidebar: document.getElementById('closeSidebar'),
+		sidebar: document.querySelector('.sidebar'),
 		settingsModal: document.getElementById('settingsModal'),
 		apiKey: document.getElementById('apiKey'),
 		model: document.getElementById('model'),
@@ -22,8 +25,8 @@
 		palette: document.getElementById('commandPalette'),
 		commandInput: document.getElementById('commandInput'),
 		commandList: document.getElementById('commandList'),
-		templateList: document.getElementById('templateList'),
-		historyList: document.getElementById('historyList')
+		historyList: document.getElementById('historyList'),
+		newChatBtn: document.getElementById('newChatBtn')
 	};
 
 	const STORE = {
@@ -39,13 +42,6 @@
 		}
 	};
 
-	const DEFAULT_TEMPLATES = [
-		{ id: 'code-review', title: 'Code Review', prompt: 'Review my code and suggest improvements.' },
-		{ id: 'ideas', title: 'Brainstorm Ideas', prompt: 'Brainstorm creative ideas about: ' },
-		{ id: 'explain', title: 'Explain Like I\'m 5', prompt: 'Explain this simply: ' },
-		{ id: 'optimize', title: 'Optimize Prompt', prompt: 'Rewrite my prompt to be clearer and more effective: ' }
-	];
-
 const DEFAULT_COMMANDS = [
     { id: 'new', label: 'New chat', action: () => startNewChat() },
     { id: 'clear', label: 'Clear messages', action: () => clearMessages() },
@@ -55,31 +51,27 @@ const DEFAULT_COMMANDS = [
 ];
 
 	let state = {
-		messages: [], // {id, role:"user|assistant", content}
-		history: [], // {id, title, ts, messagesLen}
-		templates: DEFAULT_TEMPLATES,
-		settings: { apiKey: '', model: 'gemini-2.5-pro', provider: 'gemini', speechEngine: 'browser', searchProvider: 'serper', searchKey: '', searchAuto: true, searchWiki: true },
-		currentId: generateId('chat')
+		messages: [], // {id, role:"user|assistant", content, formattedContent}
+		history: [], // {id, title, ts, messagesLen, messages}
+		settings: { apiKey: 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4', model: 'gemini-2.5-pro', provider: 'gemini', speechEngine: 'browser', searchProvider: 'serper', searchKey: '', searchAuto: true, searchWiki: true },
+		currentId: generateId('chat'),
+		scrollPosition: 0
 	};
 
 	// init from localStorage
 	const saved = STORE.load();
 	if (saved) {
-		state = Object.assign({}, state, saved, {
-			templates: saved.templates?.length ? saved.templates : DEFAULT_TEMPLATES
-		});
+		state = Object.assign({}, state, saved);
+		// Ensure scrollPosition exists
+		if (typeof state.scrollPosition === 'undefined') state.scrollPosition = 0;
 	}
 
-// If no key set yet, prefill with provided Gemini key (user-supplied)
-if (!state.settings.apiKey) {
-    state.settings.apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
-}
-// Ensure provider/model defaults to Gemini 2.5 Pro
-if (!state.settings.provider) state.settings.provider = 'gemini';
-if (!state.settings.model) state.settings.model = 'gemini-2.5-pro';
+// Force Gemini 2.5 Pro with user's API key (always override)
+state.settings.apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
+state.settings.provider = 'gemini';
+state.settings.model = 'gemini-2.5-pro';
 
 	// UI bootstrap
-	populateTemplates();
 	populateHistory();
 	els.apiKey.value = state.settings.apiKey || '';
 els.model.value = state.settings.model || 'gemini-2.5-pro';
@@ -89,9 +81,17 @@ if (els.searchProvider) els.searchProvider.value = state.settings.searchProvider
 if (els.searchKey) els.searchKey.value = state.settings.searchKey || '';
 if (els.searchAuto) els.searchAuto.checked = !!state.settings.searchAuto;
 if (els.searchWiki) els.searchWiki.checked = !!state.settings.searchWiki;
-	renderAllMessages();
+	renderAllMessages(true); // Restore scroll on initial load
 	autosizeTextarea(els.input);
 	els.input.focus();
+	
+	// Track scroll position
+	els.messages.addEventListener('scroll', () => {
+		state.scrollPosition = els.messages.scrollTop;
+		// Debounce persistence
+		clearTimeout(window.scrollSaveTimeout);
+		window.scrollSaveTimeout = setTimeout(() => persist(), 500);
+	});
 
 	// Speech recognition setup (Web Speech API) + optional MediaRecorder for OpenAI
 	let recognition = null;
@@ -126,10 +126,13 @@ if (els.searchWiki) els.searchWiki.checked = !!state.settings.searchWiki;
 	// Events
 	els.send.addEventListener('click', onSend);
 	els.input.addEventListener('keydown', onInputKeydown);
-	els.openCommand.addEventListener('click', () => openPalette(true));
+	if (els.openCommand) els.openCommand.addEventListener('click', () => openPalette(true));
 	els.openSettings.addEventListener('click', () => openModal(true));
 	els.saveSettings.addEventListener('click', saveSettings);
 	els.attach.addEventListener('click', toggleVoice);
+	if (els.newChatBtn) els.newChatBtn.addEventListener('click', () => startNewChat());
+	if (els.toggleHistory) els.toggleHistory.addEventListener('click', toggleSidebar);
+	if (els.closeSidebar) els.closeSidebar.addEventListener('click', toggleSidebar);
 	const ma = {
 		modal: document.getElementById('matchModal'),
 		home: document.getElementById('maHome'),
@@ -165,27 +168,18 @@ try { console.debug('BetAI: app initialized'); } catch {}
 	}
 	function renderPalette() {
 		const q = els.commandInput.value.toLowerCase().trim();
-		const items = [
-			...DEFAULT_COMMANDS.map(c => ({ type: 'cmd', text: c.label, data: c })),
-			...state.templates.map(t => ({ type: 'tpl', text: `Template: ${t.title}`, data: t }))
-		].filter(i => !q || i.text.toLowerCase().includes(q));
+		const items = DEFAULT_COMMANDS.map(c => ({ type: 'cmd', text: c.label, data: c }))
+			.filter(i => !q || i.text.toLowerCase().includes(q));
 		els.commandList.innerHTML = '';
 		items.forEach((item) => {
 			const li = document.createElement('li');
 			li.textContent = item.text;
 			li.addEventListener('click', () => {
-				if (item.type === 'cmd') item.data.action();
-				if (item.type === 'tpl') applyTemplate(item.data);
+				item.data.action();
 				openPalette(false);
 			});
 			els.commandList.appendChild(li);
 		});
-	}
-
-	function applyTemplate(t) {
-		els.input.value = t.prompt;
-		autosizeTextarea(els.input);
-		els.input.focus();
 	}
 
 	// Settings
@@ -194,9 +188,10 @@ try { console.debug('BetAI: app initialized'); } catch {}
 		if (open) setTimeout(() => els.apiKey.focus(), 20);
 	}
 	function saveSettings() {
-		state.settings.apiKey = (els.apiKey.value || '').trim();
-		state.settings.model = (els.model.value || 'gemini-2.0-pro').trim();
-		state.settings.provider = (els.provider?.value || 'gemini');
+		// Force Gemini 2.5 Pro always
+		state.settings.apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
+		state.settings.model = 'gemini-2.5-pro';
+		state.settings.provider = 'gemini';
 		state.settings.speechEngine = (els.speechEngine?.value || 'browser');
 		state.settings.searchProvider = (els.searchProvider?.value || 'serper');
 		state.settings.searchKey = (els.searchKey?.value || '').trim();
@@ -210,9 +205,29 @@ try { console.debug('BetAI: app initialized'); } catch {}
 	async function onSend() {
 		const text = (els.input.value || '').trim();
 		if (!text) return;
+		
+		// If this is the first message in a new conversation, create history entry
+		const isFirstMessage = state.messages.length === 0;
+		
 		pushMessage('user', text);
 		els.input.value = '';
 		autosizeTextarea(els.input);
+		
+		// Auto-create history entry for new conversation
+		if (isFirstMessage) {
+			const existingIndex = state.history.findIndex(h => h.id === state.currentId);
+			if (existingIndex === -1) {
+				state.history.unshift({
+					id: state.currentId,
+					title: summarizeTitle(text),
+					ts: Date.now(),
+					messagesLen: 1,
+					messages: []
+				});
+				populateHistory();
+			}
+		}
+		
 		const thinking = pushMessage('assistant', '');
 		if (shouldUseWebSearch(text)) {
 			webAugmentedAnswer(text, thinking.id).catch(() => streamAssistantResponse(thinking.id));
@@ -259,11 +274,28 @@ async function toggleVoice() {
     }
 }
 
-function openMatchModal(open) {
+	function openMatchModal(open) {
 	if (!ma?.modal) return;
 	ma.modal.setAttribute('aria-hidden', open ? 'false' : 'true');
 	if (open) setTimeout(() => ma.home?.focus(), 20);
 }
+
+	function toggleSidebar() {
+		if (els.sidebar) {
+			const isOpen = els.sidebar.classList.toggle('sidebar--open');
+			document.body.classList.toggle('sidebar-open', isOpen);
+		}
+	}
+
+	// Close sidebar when clicking backdrop
+	window.addEventListener('click', (e) => {
+		if (els.sidebar && els.sidebar.classList.contains('sidebar--open')) {
+			if (!els.sidebar.contains(e.target) && !els.toggleHistory?.contains(e.target)) {
+				els.sidebar.classList.remove('sidebar--open');
+				document.body.classList.remove('sidebar-open');
+			}
+		}
+	});
 
 	function setListening(val) {
 		isListening = val;
@@ -341,10 +373,10 @@ function runMatchAnalysis() {
 		if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
 	}
 
-async function transcribeWithGemini(audioBlob) {
-		const apiKey = (state.settings.apiKey || '').trim();
-		const model = state.settings.model || 'gemini-2.0-pro';
-		if (!apiKey) { alert('Add your Gemini API key in Settings.'); return; }
+	async function transcribeWithGemini(audioBlob) {
+		// Force Gemini 2.5 Pro
+		const apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
+		const model = 'gemini-2.5-pro';
 		const base64 = await blobToBase64(audioBlob);
 		const mime = audioBlob.type || 'audio/webm';
 		const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
@@ -377,17 +409,69 @@ async function transcribeWithGemini(audioBlob) {
 	}
 
 async function callGeminiChat(apiKey, model, messages) {
-		const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-		const contents = messages.map(m => ({
-			role: m.role === 'assistant' ? 'model' : 'user',
-			parts: [{ text: m.content }]
-		}));
-		if (!contents.length) contents.push({ role: 'user', parts: [{ text: 'Hello' }] });
+	// Validate API key and model
+	if (!apiKey || !apiKey.trim()) {
+		throw new Error('API key is required');
+	}
+	// Force gemini-2.5-pro - use it as-is
+	if (!model || !model.trim()) {
+		model = 'gemini-2.5-pro';
+	}
+	
+	const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model.trim())}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
+	const now = new Date();
+	const dateContext = `[Current date: ${now.toISOString().split('T')[0]} (${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })})]`;
+	
+	// System instruction for concise, question-driven responses
+	const systemInstruction = {
+		role: 'user',
+		parts: [{
+			text: `You are a concise assistant. Response rules:
+- Keep responses brief (2-4 sentences max unless asked for detail)
+- Answer the question directly, avoid unnecessary context
+- If the question is vague or broad, ask 1-2 clarifying questions instead of guessing
+- Only elaborate when explicitly asked for more detail
+- Use bullets for lists, but keep them short
+- Don't over-explain basics`
+		}]
+	};
+	
+	// Filter and map messages - remove empty ones
+	const contents = messages
+		.filter(m => m && m.content && typeof m.content === 'string' && m.content.trim())
+		.map((m, idx, filtered) => {
+			let text = m.content.trim();
+			
+			// Add date context to first user message if needed
+			if (idx === 0 && m.role === 'user' && !m.content.includes('CURRENT DATE/TIME')) {
+				text = `${dateContext}\n\n${text}`;
+			}
+			
+			// Add brief conciseness reminder to user messages (keeps AI concise throughout)
+			if (m.role === 'user' && !m.content.includes('CURRENT DATE/TIME') && !m.content.includes('You are a concise')) {
+				text = `[Keep response brief, 2-4 sentences max unless I ask for detail]\n\n${text}`;
+			}
+			
+			return {
+				role: m.role === 'assistant' ? 'model' : 'user',
+				parts: [{ text }]
+			};
+		});
+	
+	// Ensure we have at least one message
+	if (contents.length === 0) {
+		throw new Error('No valid messages to send');
+	}
+	
+	// Add system instruction only at conversation start
+	if (contents.length <= 2) { // 1 user message + maybe 1 system
+		contents.unshift(systemInstruction);
+	}
     const body = { contents };
     const data = await postJsonWithRetry(url, body, { 'Content-Type': 'application/json' });
     const text = extractGeminiText(data);
     return text || (data?.error?.message ? `Gemini: ${data.error.message}` : 'Sorry, no response.');
-	}
+}
 
 	async function callOpenAIChat(apiKey, model, messages) {
 		const sys = { role: 'system', content: 'You are a concise, helpful assistant.' };
@@ -449,11 +533,20 @@ async function webAugmentedAnswer(userText, targetId) {
 		const answer = await callGeminiChat(apiKey, model, state.messages);
 		const targetEl = findBubbleContent(targetId);
 		if (targetEl) {
-			const cites = renderCitations(top.slice(0, 3));
-			const finalText = (answer || '').trim() + (cites ? `\n\nSources:\n${cites}` : '');
-			await streamText(targetEl, finalText);
+			// Clean up duplicate sources if Gemini didn't format properly
+			let cleanAnswer = (answer || '').trim();
+			// Remove any duplicate "Sources:" sections at the end
+			const sourcesRegex = /Sources?:?\s*\n([\s\S]*)$/i;
+			const matches = cleanAnswer.match(sourcesRegex);
+			if (matches && matches.length > 1) {
+				// Keep only the last sources section
+				cleanAnswer = cleanAnswer.replace(sourcesRegex, '');
+				cleanAnswer = cleanAnswer.trim() + '\n\n' + matches[0];
+			}
+			const formatted = await streamText(targetEl, cleanAnswer);
 			const msg = state.messages.find(m => m.id === targetId);
-			msg.content = targetEl.textContent;
+			msg.content = cleanAnswer;
+			msg.formattedContent = formatted;
 			persist();
 		}
 	} finally {
@@ -463,21 +556,28 @@ async function webAugmentedAnswer(userText, targetId) {
 
 async function webSearchSerper(query, key) {
 	const url = 'https://google.serper.dev/search';
-	const body = { q: query, gl: 'us', hl: 'en' };
+	// Enhance query to prioritize recent results for time-sensitive topics
+	const enhancedQuery = query + (shouldUseWebSearch(query) ? ' latest 2025' : '');
+	const body = { q: enhancedQuery, gl: 'us', hl: 'en', num: 10 };
 	const headers = { 'X-API-KEY': key, 'Content-Type': 'application/json' };
 	const data = await postJsonWithRetry(url, body, headers);
 	const items = [];
-	(data?.organic || []).forEach(o => items.push({ title: o.title, link: o.link, snippet: o.snippet }));
+	// Prioritize news results first (usually more current)
 	(data?.news || []).forEach(n => items.push({ title: n.title, link: n.link, snippet: n.snippet }));
+	(data?.organic || []).forEach(o => items.push({ title: o.title, link: o.link, snippet: o.snippet }));
 	return items;
 }
 
 async function webSearchNewsAPI(query, key) {
-	const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&pageSize=5`;
+	// Only get articles from the last 7 days for real-time data
+	const weekAgo = new Date();
+	weekAgo.setDate(weekAgo.getDate() - 7);
+	const fromDate = weekAgo.toISOString().split('T')[0];
+	const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&sortBy=publishedAt&from=${fromDate}&pageSize=10`;
 	const headers = { 'X-Api-Key': key };
-	const data = await postJsonWithRetry(url, null, headers); // body null → GET; tweak helper to allow
+	const data = await postJsonWithRetry(url, null, headers);
 	const items = [];
-	(data?.articles || []).forEach(a => items.push({ title: a.title, link: a.url, snippet: a.description }));
+	(data?.articles || []).forEach(a => items.push({ title: a.title, link: a.url, snippet: a.description || a.content?.substring(0, 150) }));
 	return items;
 }
 
@@ -491,9 +591,24 @@ async function webSearchWikipedia(query) {
 }
 
 function composeWebPrompt(userText, sources) {
+	const now = new Date();
+	const dateStr = now.toISOString().split('T')[0];
+	const dateFull = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+	const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
 	return [
-		'You are an energetic, concise analyst. Answer engagingly using bullets and short paragraphs. Avoid outdated claims.',
-		'Incorporate recent web results provided below; if conflicting, note uncertainty. Always cite with markdown links [Title](URL).',
+		`CURRENT DATE/TIME: ${dateStr} (${dateFull}) at ${timeStr}`,
+		'You are a concise assistant. Keep responses brief (2-4 sentences max unless user asks for detail).',
+		'RESPONSE RULES:',
+		'- Answer directly, no fluff',
+		'- If question is vague, ask 1-2 clarifying questions instead of guessing',
+		'- Use **bold** for emphasis, bullets for lists (keep lists short)',
+		'- Use markdown links [Title](URL) for citations',
+		'CRITICAL:',
+		'1. Use ONLY web results below for current info. Ignore training data cutoff.',
+		'2. Treat "today/latest/recent" in results as CURRENT (matching date above).',
+		'3. NEVER say "2024" unless results explicitly state it. Use relative terms.',
+		'4. For dates in results, compare to CURRENT DATE to determine past/future.',
+		'5. End with "Sources:" section: - [Title](URL) format, unique sources only.',
 		`User question: ${userText}`,
 		'Web results:',
 		sources || 'No results.'
@@ -526,7 +641,7 @@ async function postJsonWithRetry(url, body, headers) {
 async function safeReadJson(res) { try { return await res.json(); } catch { return null; } }
 
 	function pushMessage(role, content) {
-		const msg = { id: generateId('msg'), role, content };
+		const msg = { id: generateId('msg'), role, content, formattedContent: role === 'assistant' ? formatContent(content) : null };
 		state.messages.push(msg);
 		renderMessage(msg);
 		scrollToBottom();
@@ -534,25 +649,33 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 		return msg;
 	}
 
-	function renderAllMessages() {
+	function renderAllMessages(restoreScroll = false) {
 		els.messages.innerHTML = '';
 		state.messages.forEach(renderMessage);
 		if (!state.messages.length) {
 			renderIntro();
 		}
+		// Restore scroll position if requested (on page load), otherwise scroll to bottom for new messages
+		if (restoreScroll && state.scrollPosition) {
+			setTimeout(() => {
+				els.messages.scrollTop = state.scrollPosition;
+			}, 50);
+		} else if (!restoreScroll) {
+			scrollToBottom();
+		}
+	}
 
-function clearMessages() {
-    state.messages = [];
-    persist();
-    renderAllMessages();
-}
+	function clearMessages() {
+		state.messages = [];
+		state.scrollPosition = 0;
+		persist();
+		renderAllMessages();
 	}
 
 	function renderIntro() {
 		const wrap = document.createElement('div');
-		wrap.className = 'message';
+		wrap.className = 'message message--assistant';
 		wrap.innerHTML = `
-			<div class="avatar">A</div>
 			<div class="bubble">
 				<h3>Welcome to BetAI</h3>
 				<p>All black and white. Sleek. Fast. Type your question below.</p>
@@ -565,15 +688,18 @@ function clearMessages() {
 		const wrap = document.createElement('div');
 		wrap.className = 'message';
 		const isUser = msg.role === 'user';
+		wrap.classList.add(isUser ? 'message--user' : 'message--assistant');
+		const hasContent = msg.content && msg.content.trim().length > 0;
+		const contentHtml = hasContent ? (msg.formattedContent || formatContent(msg.content)) : '';
+		const thinkingIndicator = !isUser && !hasContent ? '<div class="thinking"><span class="thinking__dot"></span><span class="thinking__dot"></span><span class="thinking__dot"></span></div>' : '';
 		wrap.innerHTML = `
-			<div class="avatar">${isUser ? 'U' : 'A'}</div>
 			<div class="bubble ${isUser ? 'bubble--user' : ''}" data-id="${msg.id}">
 				<div class="bubble__toolbar">
 					<button class="bubble__btn" data-act="copy" title="Copy"><svg class="i"><use href="#icon-copy"></use></svg></button>
 					${isUser ? '' : '<button class="bubble__btn" data-act="regen" title="Regenerate"><svg class="i"><use href="#icon-refresh"></use></svg></button>'}
 					<button class="bubble__btn" data-act="del" title="Delete"><svg class="i"><use href="#icon-trash"></use></svg></button>
 				</div>
-				<div class="content">${formatContent(msg.content)}</div>
+				<div class="content">${thinkingIndicator}${contentHtml}</div>
 			</div>
 		`;
 		wrap.addEventListener('click', (e) => onMessageToolbar(e, msg.id));
@@ -607,49 +733,192 @@ function clearMessages() {
 
 	function formatContent(text) {
 		if (!text) return '';
-		// simple markdown-ish
-		const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-		return escaped
-			.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-			.replace(/`([^`]+)`/g, '<code>$1<\/code>')
-			.replace(/\n\n/g, '<br/><br/>')
-			.replace(/\n/g, '<br/>');
+		
+		// Extract sources section (everything after "Sources:" or "sources:")
+		let mainText = text;
+		let sourcesHtml = '';
+		const sourcesMatch = text.match(/Sources?:?\s*\n([\s\S]*)$/i);
+		if (sourcesMatch) {
+			mainText = text.substring(0, sourcesMatch.index).trim();
+			const sourcesText = sourcesMatch[1].trim();
+			// Parse markdown links from sources
+			const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+			const sources = [];
+			let match;
+			while ((match = linkRegex.exec(sourcesText)) !== null) {
+				sources.push({ title: match[1], url: match[2] });
+			}
+			if (sources.length > 0) {
+				sourcesHtml = '<div class="sources"><div class="sources-title">Sources</div><ul class="sources-list">' +
+					sources.map(s => `<li><a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(s.title)}</a></li>`).join('') +
+					'</ul></div>';
+			}
+		}
+		
+		// Escape HTML in main content first
+		let html = escapeHtml(mainText);
+		
+		// Markdown transformations (order matters!)
+		// Headers
+		html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+		html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+		html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+		
+		// Bold
+		html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+		html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
+		
+		// Italic
+		html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+		html = html.replace(/_(.*?)_/g, '<em>$1</em>');
+		
+		// Code blocks (before inline code)
+		html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+		
+		// Inline code
+		html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+		
+		// Links
+		html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+		
+		// Blockquotes
+		html = html.replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>');
+		
+		// Lists - process line by line
+		const lines = html.split('\n');
+		let inList = false;
+		let listType = '';
+		let processedLines = [];
+		
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i];
+			const ulMatch = line.match(/^[\*\-] (.*)$/);
+			const olMatch = line.match(/^\d+\. (.*)$/);
+			
+			if (ulMatch) {
+				if (!inList || listType !== 'ul') {
+					if (inList) processedLines.push(`</${listType}>`);
+					processedLines.push('<ul>');
+					inList = true;
+					listType = 'ul';
+				}
+				processedLines.push(`<li>${ulMatch[1]}</li>`);
+			} else if (olMatch) {
+				if (!inList || listType !== 'ol') {
+					if (inList) processedLines.push(`</${listType}>`);
+					processedLines.push('<ol>');
+					inList = true;
+					listType = 'ol';
+				}
+				processedLines.push(`<li>${olMatch[1]}</li>`);
+			} else {
+				if (inList) {
+					processedLines.push(`</${listType}>`);
+					inList = false;
+					listType = '';
+				}
+				processedLines.push(line);
+			}
+		}
+		if (inList) processedLines.push(`</${listType}>`);
+		html = processedLines.join('\n');
+		
+		// Paragraphs (double line breaks)
+		html = html.replace(/\n\n/g, '</p><p>');
+		
+		// Wrap in paragraph if not already wrapped
+		if (!html.startsWith('<h') && !html.startsWith('<ul') && !html.startsWith('<ol') && !html.startsWith('<pre') && !html.startsWith('<blockquote')) {
+			html = '<p>' + html;
+		}
+		if (!html.endsWith('</p>') && !html.endsWith('</h1>') && !html.endsWith('</h2>') && !html.endsWith('</h3>') && !html.endsWith('</ul>') && !html.endsWith('</ol>') && !html.endsWith('</pre>') && !html.endsWith('</blockquote>')) {
+			html = html + '</p>';
+		}
+		
+		// Single line breaks
+		html = html.replace(/\n/g, '<br/>');
+		
+		return html + sourcesHtml;
+	}
+	
+	function escapeHtml(text) {
+		const div = document.createElement('div');
+		div.textContent = text;
+		return div.innerHTML;
 	}
 
 	async function streamAssistantResponse(targetId, isRegen = false) {
-		const apiKey = state.settings.apiKey;
-		const model = state.settings.model || (state.settings.provider === 'gemini' ? 'gemini-2.0-pro' : 'gpt-4o-mini');
+		// ALWAYS use Gemini 2.5 Pro - force it
+		const apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
+		const model = 'gemini-2.5-pro';
+		state.settings.provider = 'gemini';
+		state.settings.apiKey = apiKey;
+		state.settings.model = model;
+		
 		const lastUser = findLastUserMessage();
 		const targetEl = findBubbleContent(targetId);
 		if (!targetEl) return;
+
+		// Validate messages array
+		if (!state.messages || !Array.isArray(state.messages) || state.messages.length === 0) {
+			const errMsg = 'No messages to send';
+			await streamText(targetEl, errMsg);
+			const msg = state.messages.find(m => m.id === targetId);
+			if (msg) {
+				msg.content = errMsg;
+				msg.formattedContent = formatContent(errMsg);
+			}
+			persist();
+			return;
+		}
+
+		// Show thinking indicator if function exists
+		if (typeof showThinkingIndicator === 'function') {
+			showThinkingIndicator(targetEl);
+		}
 
 		// Streaming with mock fallback
 		if (!apiKey) {
 			await streamMock(targetEl, lastUser?.content || '');
 			const msg = state.messages.find(m => m.id === targetId);
-			msg.content = targetEl.textContent;
+			if (msg) {
+				msg.content = targetEl.textContent;
+			}
 			persist();
 			return;
 		}
 
 		try {
-			targetEl.textContent = '';
-			let content = '';
-			if (state.settings.provider === 'gemini') {
-				content = await callGeminiChat(apiKey, model, state.messages);
-			} else {
-				content = await callOpenAIChat(apiKey, model, state.messages);
-			}
-			await streamText(targetEl, content);
+			// ALWAYS use Gemini 2.5 Pro - never OpenAI
+			const content = await callGeminiChat(apiKey, model, state.messages);
+			const formatted = await streamText(targetEl, content);
 			const msg = state.messages.find(m => m.id === targetId);
-			msg.content = content;
+			if (msg) {
+				msg.content = content;
+				msg.formattedContent = formatted;
+			}
 			persist();
 		} catch (err) {
-			await streamText(targetEl, 'Failed to fetch from API. Using local reasoning...');
-			await streamMock(targetEl, lastUser?.content || '');
+			console.error('API Error:', err);
+			const errMsg = err.message || 'Failed to fetch from API';
+			const errFormatted = await streamText(targetEl, `Error: ${errMsg}. Using local reasoning...`);
+			const mockFormatted = await streamMock(targetEl, lastUser?.content || '');
 			const msg = state.messages.find(m => m.id === targetId);
-			msg.content = targetEl.textContent;
+			if (msg) {
+				msg.content = targetEl.textContent || '';
+				msg.formattedContent = errFormatted + mockFormatted;
+			}
 			persist();
+		}
+	}
+
+	function showThinkingIndicator(el) {
+		el.innerHTML = '<div class="thinking"><span class="thinking__dot"></span><span class="thinking__dot"></span><span class="thinking__dot"></span></div>';
+	}
+
+	function removeThinkingIndicator(el) {
+		const thinking = el.querySelector('.thinking');
+		if (thinking) {
+			thinking.remove();
 		}
 	}
 
@@ -665,16 +934,31 @@ function clearMessages() {
 	}
 
 	async function streamText(el, text) {
-		for (let i = 0; i < text.length; i++) {
-			el.innerHTML += text[i] === '\n' ? '<br/>' : text[i];
-			await sleep(6);
+		// Remove thinking indicator when starting to stream
+		removeThinkingIndicator(el);
+		
+		// For better formatting, we'll accumulate and format in chunks
+		let accumulated = '';
+		const chunkSize = 10; // characters per chunk
+		for (let i = 0; i < text.length; i += chunkSize) {
+			accumulated += text.substring(i, i + chunkSize);
+			// Format and update display
+			const formatted = formatContent(accumulated);
+			el.innerHTML = formatted;
+			await sleep(8);
 			scrollToBottom();
 		}
+		// Final format to ensure everything is properly rendered
+		const finalFormatted = formatContent(text);
+		el.innerHTML = finalFormatted;
+		return finalFormatted;
 	}
 	async function streamMock(el, userText) {
+		// Remove thinking indicator when starting to stream
+		removeThinkingIndicator(el);
 		const bullets = mockReason(userText);
 		const content = bullets.join('\n');
-		await streamText(el, content);
+		return await streamText(el, content);
 	}
 	function mockReason(input) {
 		const base = input || 'your query';
@@ -705,16 +989,49 @@ function clearMessages() {
 	// Conversation history
 	function startNewChat() {
 		if (state.messages.length) {
-			state.history.unshift({ id: state.currentId, title: summarizeTitle(state.messages[0]?.content || 'Conversation'), ts: Date.now(), messagesLen: state.messages.length });
+			// Update existing history entry if it exists, otherwise create new
+			const existingIndex = state.history.findIndex(h => h.id === state.currentId);
+			const title = summarizeTitle(state.messages[0]?.content || 'New Chat');
+			
+			if (existingIndex >= 0) {
+				// Update existing entry with full conversation
+				state.history[existingIndex] = {
+					id: state.currentId,
+					title: title,
+					ts: state.history[existingIndex].ts || Date.now(), // Keep original timestamp
+					messagesLen: state.messages.length,
+					messages: [...state.messages]
+				};
+				// Move to top
+				state.history.unshift(state.history.splice(existingIndex, 1)[0]);
+			} else {
+				// Create new entry
+				state.history.unshift({ 
+					id: state.currentId, 
+					title: title,
+					ts: Date.now(), 
+					messagesLen: state.messages.length,
+					messages: [...state.messages]
+				});
+			}
 		}
 		state.currentId = generateId('chat');
 		state.messages = [];
+		state.scrollPosition = 0;
 		persist();
 		renderAllMessages();
 		populateHistory();
 	}
 	function summarizeTitle(text) {
-		return (text.slice(0, 28) + (text.length > 28 ? '…' : '')).replace(/\n/g, ' ');
+		if (!text) return 'New Chat';
+		// Clean up the text - remove markdown, extra whitespace, etc.
+		let clean = text.replace(/\*\*/g, '').replace(/`/g, '').replace(/#{1,6}\s/g, '').trim();
+		clean = clean.replace(/\n+/g, ' ').replace(/\s+/g, ' ');
+		// Take first 50 characters, truncate at word boundary if possible
+		if (clean.length <= 50) return clean;
+		const truncated = clean.slice(0, 50);
+		const lastSpace = truncated.lastIndexOf(' ');
+		return lastSpace > 30 ? truncated.slice(0, lastSpace) + '…' : truncated + '…';
 	}
 	function populateHistory() {
 		els.historyList.innerHTML = '';
@@ -728,25 +1045,26 @@ function clearMessages() {
 	function loadHistory(id) {
 		const item = state.history.find(x => x.id === id);
 		if (!item) return;
+		
+		// Save current conversation to history
+		if (state.messages.length) {
+			state.history.unshift({ 
+				id: state.currentId, 
+				title: summarizeTitle(state.messages[0]?.content || 'Conversation'), 
+				ts: Date.now(), 
+				messagesLen: state.messages.length,
+				messages: [...state.messages]
+			});
+		}
+		
+		// Remove selected item from history and load it
 		state.history = state.history.filter(x => x.id !== id);
-		state.history.unshift({ id: state.currentId, title: summarizeTitle(state.messages[0]?.content || 'Conversation'), ts: Date.now(), messagesLen: state.messages.length });
 		state.currentId = id;
-		state.messages = item.messages || []; // legacy safeguard
+		state.messages = item.messages || [];
+		state.scrollPosition = 0; // Reset scroll when loading new conversation
 		persist();
 		renderAllMessages();
 		populateHistory();
-	}
-
-	// Templates
-	function populateTemplates() {
-		els.templateList.innerHTML = '';
-		state.templates.forEach(t => {
-			const li = document.createElement('li');
-			li.textContent = t.title;
-			li.title = t.prompt;
-			li.addEventListener('click', () => applyTemplate(t));
-			els.templateList.appendChild(li);
-		});
 	}
 
 	// Export
@@ -764,14 +1082,37 @@ function clearMessages() {
 		URL.revokeObjectURL(url);
 	}
 
+	// Update current conversation in history
+	function updateCurrentHistory() {
+		if (state.messages.length === 0) return;
+		const existingIndex = state.history.findIndex(h => h.id === state.currentId);
+		const title = summarizeTitle(state.messages[0]?.content || 'New Chat');
+		
+		if (existingIndex >= 0) {
+			// Update existing entry
+			state.history[existingIndex] = {
+				id: state.currentId,
+				title: title,
+				ts: state.history[existingIndex].ts || Date.now(),
+				messagesLen: state.messages.length,
+				messages: [...state.messages]
+			};
+			// Move to top
+			if (existingIndex > 0) {
+				state.history.unshift(state.history.splice(existingIndex, 1)[0]);
+			}
+		}
+	}
+
 	// Persistence
 	function persist() {
+		updateCurrentHistory(); // Keep history entry up to date
 		STORE.save({
 			messages: state.messages,
 			history: state.history,
-			templates: state.templates,
 			settings: state.settings,
-			currentId: state.currentId
+			currentId: state.currentId,
+			scrollPosition: state.scrollPosition || 0
 		});
 	}
 
