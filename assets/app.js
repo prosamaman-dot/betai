@@ -55,7 +55,7 @@ const DEFAULT_COMMANDS = [
 	let state = {
 		messages: [], // {id, role:"user|assistant", content, formattedContent}
 		history: [], // {id, title, ts, messagesLen, messages}
-		settings: { apiKey: 'AIzaSyAmUENTunN37snDBhjHDXm4xgDHN6BdbOg', model: 'gemini-2.5-pro', provider: 'gemini', speechEngine: 'browser', searchProvider: 'serper', searchKey: '', searchAuto: true, searchWiki: true },
+		settings: { apiKey: 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4', model: 'gemini-2.5-pro', provider: 'gemini', speechEngine: 'browser', searchProvider: 'serper', searchKey: '', searchAuto: false, searchWiki: true },
 		currentId: generateId('chat'),
 		scrollPosition: 0
 	};
@@ -69,9 +69,10 @@ const DEFAULT_COMMANDS = [
 	}
 
 // Force Gemini 2.5 Pro with user's API key (always override)
-state.settings.apiKey = 'AIzaSyAmUENTunN37snDBhjHDXm4xgDHN6BdbOg';
+state.settings.apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
 state.settings.provider = 'gemini';
 state.settings.model = 'gemini-2.5-pro';
+state.settings.searchAuto = false; // Disable auto-search to save quota
 
 	// UI bootstrap
 	populateHistory();
@@ -191,7 +192,7 @@ try { console.debug('BetAI: app initialized'); } catch {}
 	}
 	function saveSettings() {
 		// Force Gemini 2.5 Pro always
-		state.settings.apiKey = 'AIzaSyAmUENTunN37snDBhjHDXm4xgDHN6BdbOg';
+		state.settings.apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
 		state.settings.model = 'gemini-2.5-pro';
 		state.settings.provider = 'gemini';
 		state.settings.speechEngine = (els.speechEngine?.value || 'browser');
@@ -400,7 +401,7 @@ function runMatchAnalysis() {
 
 	async function transcribeWithGemini(audioBlob) {
 		// Force Gemini 2.5 Pro
-		const apiKey = 'AIzaSyAmUENTunN37snDBhjHDXm4xgDHN6BdbOg';
+		const apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
 		const model = 'gemini-2.5-pro';
 		const base64 = await blobToBase64(audioBlob);
 		const mime = audioBlob.type || 'audio/webm';
@@ -649,13 +650,18 @@ Response rules (general):
 		contents.unshift(systemInstruction);
 	}
     
-    // Enable Gemini's built-in Google Search integration
+    // Only enable Google Search if searchAuto is enabled (saves API quota)
+    const shouldUseSearch = state.settings.searchAuto && !!state.settings.searchKey?.trim();
     const body = { 
-        contents,
-        tools: [{
-            googleSearch: {}
-        }]
+        contents
     };
+    
+    // Conditionally add Google Search tool
+    if (shouldUseSearch) {
+        body.tools = [{
+            googleSearch: {}
+        }];
+    }
     
     const data = await postJsonWithRetry(url, body, { 'Content-Type': 'application/json' });
     const text = extractGeminiText(data);
@@ -883,13 +889,22 @@ async function postJsonWithRetry(url, body, headers) {
             const init = body == null ? { method: 'GET', headers } : { method: 'POST', headers, body: JSON.stringify(body) };
             const res = await fetch(url, init);
             if (res.ok) return await res.json();
+            
+            // Handle rate limiting (429) - wait longer between retries
             if (res.status === 429) {
-                await sleep(1000 * Math.pow(2, attempt));
+                const waitTime = 1000 * Math.pow(2, attempt); // Exponential backoff: 1s, 2s, 4s
+                console.warn(`Rate limited. Waiting ${waitTime}ms before retry ${attempt + 1}/3...`);
+                await sleep(waitTime);
                 continue;
             }
+            
+            // Handle other errors
             const errJson = await safeReadJson(res);
-            lastError = new Error(errJson?.error?.message || `HTTP ${res.status}`);
-        } catch (e) { lastError = e; }
+            const errorMessage = errJson?.error?.message || `HTTP ${res.status}`;
+            lastError = new Error(`${errorMessage} (Status: ${res.status})`);
+        } catch (e) { 
+            lastError = e; 
+        }
     }
     throw lastError || new Error('Network error');
 }
@@ -1251,7 +1266,7 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 
 	async function streamAssistantResponse(targetId, isRegen = false) {
 		// ALWAYS use Gemini 2.5 Pro - force it
-		const apiKey = 'AIzaSyAmUENTunN37snDBhjHDXm4xgDHN6BdbOg';
+		const apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
 		const model = 'gemini-2.5-pro';
 		state.settings.provider = 'gemini';
 		state.settings.apiKey = apiKey;
@@ -1305,13 +1320,23 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 		} catch (err) {
 			console.error('API Error:', err);
 			const errMsg = err.message || 'Failed to fetch from API';
-			const errFormatted = await streamText(targetEl, `Error: ${errMsg}. Using local reasoning...`);
-			const mockFormatted = await streamMock(targetEl, lastUser?.content || '');
+			
+			// Show user-friendly error message
+			let errorText = '';
+			if (errMsg.includes('429') || errMsg.includes('Too Many Requests') || errMsg.includes('quota')) {
+				errorText = '⚠️ **Rate limit reached!**\n\nYou\'ve reached your daily API quota (50 messages/day). Please try again tomorrow or reduce your message count.\n\n💡 **Tips to save quota:**\n- Turn off "Auto Search" in Settings\n- Avoid regenerating messages\n- Wait a few hours before trying again';
+			} else if (errMsg.includes('403') || errMsg.includes('Forbidden')) {
+				errorText = '❌ **API Key Error!**\n\nInvalid or unauthorized API key. Please check your settings.';
+			} else {
+				errorText = `❌ **API Error:** ${errMsg}\n\nPlease try again or check your internet connection.`;
+			}
+			
+			const errFormatted = await streamText(targetEl, errorText);
 			const msg = state.messages.find(m => m.id === targetId);
 			if (msg) {
-				msg.content = targetEl.textContent || '';
-				msg.sources = extractSources(msg.content);
-				msg.formattedContent = errFormatted + mockFormatted;
+				msg.content = errorText;
+				msg.sources = extractSources(errorText);
+				msg.formattedContent = errFormatted;
 			}
 			persist();
 		}
