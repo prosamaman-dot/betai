@@ -757,7 +757,7 @@ async function webAugmentedAnswer(userText, targetId) {
 	}
 }
 
-async function webSearchGoogleCSE(query) {
+async function webSearchGoogleCSE(query, additionalParams = {}) {
 	// 🌐 Google Custom Search Engine API - Best for searching internet
 	const apiKey = state.settings.searchKey || 'AIzaSyBGOCzmup_XqlMK1z1rN1vQKLBtUJfMI_g';
 	const cseId = state.settings.googleCseId || '624ea501b034f402e';
@@ -772,17 +772,32 @@ async function webSearchGoogleCSE(query) {
 	// Enhance query for football searches - make it more specific for today's matches
 	let enhancedQuery = query;
 	if (isFootballQuery && isTodayQuery) {
-		const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-		// Search for today's matches with current date
-		enhancedQuery = `${query} ${today} fixtures schedule live scores`;
+		const now = new Date();
+		const todayFull = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+		const todayShort = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+		const todayISO = now.toISOString().split('T')[0]; // YYYY-MM-DD
+		
+		// Multiple query variations for better coverage
+		enhancedQuery = `${query} ${todayFull} ${todayShort} ${todayISO} fixtures schedule live scores today matches`;
 		// Also add site filters for reliable sources
-		enhancedQuery += ' site:espn.com OR site:bbc.com/sport OR site:skysports.com OR site:fotmob.com OR site:livescore.com OR site:goal.com OR site:premierleague.com';
+		enhancedQuery += ' site:espn.com OR site:bbc.com/sport OR site:skysports.com OR site:fotmob.com OR site:livescore.com OR site:goal.com OR site:premierleague.com OR site:uefa.com OR site:theguardian.com/football';
 	} else if (isFootballQuery) {
 		const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-		enhancedQuery = `${query} ${today} site:espn.com OR site:bbc.com/sport OR site:skysports.com OR site:fotmob.com OR site:livescore.com OR site:goal.com`;
+		enhancedQuery = `${query} ${today} site:espn.com OR site:bbc.com/sport OR site:skysports.com OR site:fotmob.com OR site:livescore.com OR site:goal.com OR site:theguardian.com/football`;
 	}
 	
-	const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(apiKey)}&cx=${encodeURIComponent(cseId)}&q=${encodeURIComponent(enhancedQuery)}&num=10`;
+	// Build URL with optional parameters
+	let url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(apiKey)}&cx=${encodeURIComponent(cseId)}&q=${encodeURIComponent(enhancedQuery)}&num=10`;
+	
+	// Add date restriction for recent results if available
+	if (additionalParams.dateRestrict) {
+		url += `&dateRestrict=${additionalParams.dateRestrict}`;
+	}
+	
+	// Add sort parameter for relevance
+	if (additionalParams.sort) {
+		url += `&sort=${additionalParams.sort}`;
+	}
 	
 	try {
 		const response = await fetch(url);
@@ -799,29 +814,112 @@ async function webSearchGoogleCSE(query) {
 			data.items.forEach(item => {
 				const url = (item.link || '').toLowerCase();
 				const isFootballSite = /espn|bbc|sky|sport|football|fotmob|livescore|goal|guardian|telegraph|premierleague|uefa|soccer/i.test(url);
-				const snippet = (item.snippet || '').trim();
+				const snippet = (item.snippet || item.htmlSnippet || '').trim();
+				
+				// Enhanced snippet: combine snippet with htmlSnippet if available
+				let fullSnippet = snippet;
+				if (item.htmlSnippet && item.htmlSnippet !== snippet) {
+					// Remove HTML tags and combine
+					const cleanHtml = item.htmlSnippet.replace(/<[^>]*>/g, ' ').trim();
+					if (cleanHtml.length > snippet.length) {
+						fullSnippet = cleanHtml.substring(0, 500); // Limit to 500 chars
+					}
+				}
 				
 				// Only include items with actual content (snippet)
-				if (snippet.length > 20) {
+				if (fullSnippet.length > 20) {
+					// Score result quality (higher score = better)
+					let qualityScore = 0;
+					if (isFootballSite) qualityScore += 10;
+					if (fullSnippet.length > 100) qualityScore += 5;
+					if (fullSnippet.length > 200) qualityScore += 5;
+					if (/today|live|fixture|match|score|kickoff|game/i.test(fullSnippet)) qualityScore += 5;
+					if (/time|schedule|venue|stadium/i.test(fullSnippet)) qualityScore += 3;
+					
 					items.push({
 						title: item.title || '',
 						link: item.link || '',
-						snippet: snippet, // CRITICAL: This is the real data
-						priority: isFootballSite ? 0 : 1 // Football sites get higher priority
+						snippet: fullSnippet,
+						priority: isFootballSite ? 0 : 1,
+						qualityScore: qualityScore
 					});
 				}
 			});
 		}
 		
-		// Sort by priority
-		items.sort((a, b) => (a.priority || 1) - (b.priority || 1));
+		// Sort by priority first, then quality score
+		items.sort((a, b) => {
+			if (a.priority !== b.priority) return a.priority - b.priority;
+			return (b.qualityScore || 0) - (a.qualityScore || 0);
+		});
 		
 		console.log(`Google CSE found ${items.length} results with content for query: ${query}`);
-		return items.slice(0, 10);
+		return items.slice(0, 15); // Return more results for better coverage
 	} catch (e) {
 		console.error('Google CSE search failed:', e);
 		throw e;
 	}
+}
+
+// Run multiple parallel searches for better coverage
+async function webSearchGoogleCSEParallel(query) {
+	const isTodayMatchQuery = /today.*match|today.*game|today.*fixture|match.*today|game.*today/i.test(query);
+	
+	if (!isTodayMatchQuery) {
+		// Single search for non-"today" queries
+		return await webSearchGoogleCSE(query);
+	}
+	
+	// For "today's matches", run multiple searches in parallel for better results
+	const searchQueries = [
+		query, // Original query
+		`${query} live scores fixtures`,
+		`${query} today schedule kickoff times`,
+		`${query} matches today results`
+	];
+	
+	const searchPromises = searchQueries.map((q, index) => {
+		// Stagger requests slightly to avoid rate limits
+		return new Promise(resolve => {
+			setTimeout(async () => {
+				try {
+					const results = await webSearchGoogleCSE(q, {
+						dateRestrict: 'd1', // Last day only for real-time data
+						sort: 'date' // Sort by date for newest first
+					});
+					resolve(results || []);
+				} catch (e) {
+					console.warn(`Parallel search ${index} failed:`, e);
+					resolve([]);
+				}
+			}, index * 200); // 200ms delay between requests
+		});
+	});
+	
+	// Wait for all searches to complete
+	const allResults = await Promise.all(searchPromises);
+	
+	// Merge and deduplicate results
+	const mergedItems = [];
+	const seenLinks = new Set();
+	
+	allResults.forEach(resultSet => {
+		resultSet.forEach(item => {
+			if (!seenLinks.has(item.link)) {
+				seenLinks.add(item.link);
+				mergedItems.push(item);
+			}
+		});
+	});
+	
+	// Re-sort by priority and quality
+	mergedItems.sort((a, b) => {
+		if (a.priority !== b.priority) return a.priority - b.priority;
+		return (b.qualityScore || 0) - (a.qualityScore || 0);
+	});
+	
+	console.log(`Parallel search found ${mergedItems.length} unique results`);
+	return mergedItems.slice(0, 15);
 }
 
 async function webSearchBrowser(query) {
@@ -837,7 +935,8 @@ async function webSearchBrowser(query) {
 		
 		if (apiKey && cseId) {
 			try {
-				const googleResults = await webSearchGoogleCSE(query);
+				// Use parallel search for better real-time data coverage
+				const googleResults = await webSearchGoogleCSEParallel(query);
 				googleResults.forEach(item => {
 					if (!items.find(i => i.link === item.link)) {
 						items.push(item);
