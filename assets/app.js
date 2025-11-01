@@ -19,6 +19,7 @@
 		speechEngine: document.getElementById('speechEngine'),
 		searchProvider: document.getElementById('searchProvider'),
 		searchKey: document.getElementById('searchKey'),
+		googleCseId: document.getElementById('googleCseId'),
 		searchAuto: document.getElementById('searchAuto'),
 		searchWiki: document.getElementById('searchWiki'),
 		saveSettings: document.getElementById('saveSettings'),
@@ -55,7 +56,7 @@ const DEFAULT_COMMANDS = [
 	let state = {
 		messages: [], // {id, role:"user|assistant", content, formattedContent}
 		history: [], // {id, title, ts, messagesLen, messages}
-		settings: { apiKey: 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4', model: 'gemini-2.5-pro', provider: 'gemini', speechEngine: 'browser', searchProvider: 'serper', searchKey: '', searchAuto: false, searchWiki: true },
+		settings: { apiKey: 'csk-j9njfnrf9tctv246fdtph3xht6dh8pfrpmr3jnhrcyjpr38k', model: 'gpt-oss-120b', provider: 'cerebras', speechEngine: 'browser', searchProvider: 'browser', searchKey: 'AIzaSyBGOCzmup_XqlMK1z1rN1vQKLBtUJfMI_g', googleCseId: '624ea501b034f402e', searchAuto: true, searchWiki: true },
 		currentId: generateId('chat'),
 		scrollPosition: 0
 	};
@@ -68,20 +69,21 @@ const DEFAULT_COMMANDS = [
 		if (typeof state.scrollPosition === 'undefined') state.scrollPosition = 0;
 	}
 
-// Force Gemini 2.5 Pro with user's API key (always override)
-state.settings.apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
-state.settings.provider = 'gemini';
-state.settings.model = 'gemini-2.5-pro';
-state.settings.searchAuto = false; // Disable auto-search to save quota
+// Use Cerebras API
+state.settings.apiKey = 'csk-j9njfnrf9tctv246fdtph3xht6dh8pfrpmr3jnhrcyjpr38k';
+state.settings.provider = 'cerebras';
+state.settings.model = 'gpt-oss-120b';
+state.settings.searchAuto = true; // Enable auto-search
 
 	// UI bootstrap
 	populateHistory();
 	els.apiKey.value = state.settings.apiKey || '';
-els.model.value = state.settings.model || 'gemini-2.5-pro';
-	if (els.provider) { els.provider.value = state.settings.provider || 'gemini'; }
+els.model.value = state.settings.model || 'gpt-oss-120b';
+	if (els.provider) { els.provider.value = state.settings.provider || 'cerebras'; }
 	if (els.speechEngine) { els.speechEngine.value = state.settings.speechEngine || 'browser'; }
-if (els.searchProvider) els.searchProvider.value = state.settings.searchProvider || 'serper';
-if (els.searchKey) els.searchKey.value = state.settings.searchKey || '';
+if (els.searchProvider) els.searchProvider.value = state.settings.searchProvider || 'browser';
+if (els.searchKey) els.searchKey.value = state.settings.searchKey || 'AIzaSyBGOCzmup_XqlMK1z1rN1vQKLBtUJfMI_g';
+if (els.googleCseId) els.googleCseId.value = state.settings.googleCseId || '624ea501b034f402e';
 if (els.searchAuto) els.searchAuto.checked = !!state.settings.searchAuto;
 if (els.searchWiki) els.searchWiki.checked = !!state.settings.searchWiki;
 	renderAllMessages(true); // Restore scroll on initial load
@@ -191,13 +193,14 @@ try { console.debug('BetAI: app initialized'); } catch {}
 		if (open) setTimeout(() => els.apiKey.focus(), 20);
 	}
 	function saveSettings() {
-		// Force Gemini 2.5 Pro always
-		state.settings.apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
-		state.settings.model = 'gemini-2.5-pro';
-		state.settings.provider = 'gemini';
+		// Use Cerebras API
+		state.settings.apiKey = (els.apiKey?.value || 'csk-j9njfnrf9tctv246fdtph3xht6dh8pfrpmr3jnhrcyjpr38k').trim();
+		state.settings.model = (els.model?.value || 'gpt-oss-120b').trim();
+		state.settings.provider = (els.provider?.value || 'cerebras');
 		state.settings.speechEngine = (els.speechEngine?.value || 'browser');
-		state.settings.searchProvider = (els.searchProvider?.value || 'serper');
-		state.settings.searchKey = (els.searchKey?.value || '').trim();
+		state.settings.searchProvider = (els.searchProvider?.value || 'browser');
+		state.settings.searchKey = (els.searchKey?.value || 'AIzaSyBGOCzmup_XqlMK1z1rN1vQKLBtUJfMI_g').trim();
+		state.settings.googleCseId = (els.googleCseId?.value || '624ea501b034f402e').trim();
 		state.settings.searchAuto = !!els.searchAuto?.checked;
 		state.settings.searchWiki = !!els.searchWiki?.checked;
 		persist();
@@ -257,11 +260,7 @@ async function toggleVoice() {
             mediaRecorder.ondataavailable = (e) => { if (e.data.size) audioChunks.push(e.data); };
             mediaRecorder.onstop = async () => {
                 const blob = new Blob(audioChunks, { type: mime });
-                if ((state.settings.provider || 'gemini') === 'gemini') {
-                    await transcribeWithGemini(blob);
-                } else {
-                    await transcribeWithOpenAI(blob);
-                }
+                await transcribeWithOpenAI(blob);
                 stream.getTracks().forEach(t => t.stop());
                 mediaRecorder = null; audioChunks = [];
             };
@@ -399,56 +398,20 @@ function runMatchAnalysis() {
 		if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
 	}
 
-	async function transcribeWithGemini(audioBlob) {
-		// Force Gemini 2.5 Pro
-		const apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
-		const model = 'gemini-2.5-pro';
-		const base64 = await blobToBase64(audioBlob);
-		const mime = audioBlob.type || 'audio/webm';
-		const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
-		const body = {
-			contents: [
-				{
-					role: 'user',
-					parts: [
-						{ text: 'Transcribe the following audio into plain text. Return only the transcript.' },
-						{ inline_data: { mime_type: mime, data: base64 } }
-					]
-				}
-			]
-		};
-    try {
-        const data = await postJsonWithRetry(url, body, { 'Content-Type': 'application/json' });
-			const text = extractGeminiText(data) || '';
-			if (text) {
-				const base = (els.input.value || '').trim();
-				els.input.value = base ? base + ' ' + text : text;
-				autosizeTextarea(els.input);
-			} else {
-            alert(data?.error?.message ? `Gemini: ${data.error.message}` : 'No transcript returned by Gemini.');
-			}
-    } catch (e) {
-        alert(e?.message || 'Gemini transcription error.');
-		} finally {
-			setListening(false);
-		}
-	}
 
-async function callGeminiChat(apiKey, model, messages) {
+async function callCerebrasChat(apiKey, model, messages) {
 	// Validate API key and model
 	if (!apiKey || !apiKey.trim()) {
 		throw new Error('API key is required');
 	}
-	// Force gemini-2.5-pro - use it as-is
 	if (!model || !model.trim()) {
-		model = 'gemini-2.5-pro';
+		model = 'gpt-oss-120b';
 	}
 	
-	const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model.trim())}:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
+	const url = 'https://api.cerebras.ai/v1/chat/completions';
 	const now = new Date();
 	
 	// Get Ethiopia (Addis Ababa) time - UTC+3 (EAT - East Africa Time)
-	const ethiopiaOptions = { timeZone: 'Africa/Addis_Ababa', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false };
 	const ethiopiaDateFull = now.toLocaleDateString('en-US', { timeZone: 'Africa/Addis_Ababa', weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 	const ethiopiaTimeStr = now.toLocaleTimeString('en-US', { timeZone: 'Africa/Addis_Ababa', hour: '2-digit', minute: '2-digit', hour12: false });
 	const ethiopiaDateStr = now.toLocaleDateString('en-US', { timeZone: 'Africa/Addis_Ababa', year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
@@ -456,18 +419,12 @@ async function callGeminiChat(apiKey, model, messages) {
 	const dateContext = `[Current date/time in Ethiopia (Addis Ababa, UTC+3, EAT): ${ethiopiaDateFull} at ${ethiopiaTimeStr} EAT]`;
 	
 	// System instruction for concise, question-driven responses
-	const systemInstruction = {
-		role: 'user',
-		parts: [{
-			text: `You are BetAI, a concise assistant with REAL-TIME INTERNET ACCESS.
+	const systemMessage = `You are BetAI, a concise assistant with REAL-TIME INTERNET ACCESS.
 YOUR NAME: When asked about your name or who you are, always respond "I'm BetAI" or "I'm BetAI, your intelligent betting and football analysis assistant."
 CRITICAL IDENTITY RULES:
 - You are BetAI, created and developed by Samuel
-- NEVER say you were "trained by Google" or "developed by Google" or mention Google in any identity context
 - When asked about training, developer, creator, or who trained/developed/created you: ALWAYS respond with "Samuel" or "Developed by Samuel" or "Created by Samuel"
 - Being a large language model / what you are: Say "I'm BetAI, a large language model developed by Samuel" or "I'm BetAI, created by Samuel"
-- If asked "who are you" combined with "who is your developer/creator/trainer": Respond "I'm BetAI, developed by Samuel"
-- NEVER mention "Google", "being a Google model", "trained by Google", "developed by Google", or "created by Google" - replace ALL with "Samuel"
 
 IMPORTANT: You have access to live internet data and can search for current information when needed for real-time data.
 
@@ -605,14 +562,12 @@ Response rules (general):
 - Use bullets for lists, keep them very short
 - Never explain why or how unless user asks for predictions
 - When asked about current events, news, or real-time data, automatically search the internet for the latest information
-- NEVER include disclaimers, warnings, legal notices, "please gamble responsibly", "for entertainment purposes only", or any disclaimer text in responses`
-		}]
-	};
+- NEVER include disclaimers, warnings, legal notices, "please gamble responsibly", "for entertainment purposes only", or any disclaimer text in responses`;
 	
 	// Filter and map messages - remove empty ones
-	const contents = messages
+	const formattedMessages = messages
 		.filter(m => m && m.content && typeof m.content === 'string' && m.content.trim())
-		.map((m, idx, filtered) => {
+		.map((m, idx) => {
 			let text = m.content.trim();
 			
 			// Add date context to first user message if needed
@@ -633,41 +588,38 @@ Response rules (general):
 					reminders.push('Use Ethiopia (Addis Ababa, EAT) timezone for all times.');
 				}
 				const reminderText = reminders.length > 0 ? ' ' + reminders.join(' ') + ' ' : '';
-				text = `[Your identity: You are BetAI, developed by Samuel. When asked about your creator/developer, always say "Samuel" or "Developed by Samuel". NEVER mention Google. You have real-time internet access. Use it for current info.${reminderText}CRITICAL: Give ONLY main points, NO explanations unless I specifically ask for predictions. For predictions only: provide a little explanation. For everything else: just facts, no explanations. NEVER include disclaimers, warnings, or legal notices.]\n\n${text}`;
+				text = `[Your identity: You are BetAI, developed by Samuel. When asked about your creator/developer, always say "Samuel" or "Developed by Samuel". You have real-time internet access. Use it for current info.${reminderText}CRITICAL: Give ONLY main points, NO explanations unless I specifically ask for predictions. For predictions only: provide a little explanation. For everything else: just facts, no explanations. NEVER include disclaimers, warnings, or legal notices.]\n\n${text}`;
 			}
 			
 			return {
-				role: m.role === 'assistant' ? 'model' : 'user',
-				parts: [{ text }]
+				role: m.role === 'assistant' ? 'assistant' : 'user',
+				content: text
 			};
 		});
 	
 	// Ensure we have at least one message
-	if (contents.length === 0) {
+	if (formattedMessages.length === 0) {
 		throw new Error('No valid messages to send');
 	}
 	
-	// Add system instruction only at conversation start
-	if (contents.length <= 2) { // 1 user message + maybe 1 system
-		contents.unshift(systemInstruction);
-	}
+	// Add system message at the beginning
+	const allMessages = [
+		{ role: 'system', content: systemMessage },
+		...formattedMessages
+	];
     
-    // Only enable Google Search if searchAuto is enabled (saves API quota)
-    const shouldUseSearch = state.settings.searchAuto && !!state.settings.searchKey?.trim();
-    const body = { 
-        contents
-    };
+	const body = { 
+		model: model.trim(),
+		messages: allMessages
+	};
     
-    // Conditionally add Google Search tool
-    if (shouldUseSearch) {
-        body.tools = [{
-            googleSearch: {}
-        }];
-    }
-    
-    const data = await postJsonWithRetry(url, body, { 'Content-Type': 'application/json' });
-    const text = extractGeminiText(data);
-    return text || (data?.error?.message ? `Gemini: ${data.error.message}` : 'Sorry, no response.');
+	const data = await postJsonWithRetry(url, body, { 
+		'Content-Type': 'application/json',
+		'Authorization': `Bearer ${apiKey.trim()}`
+	});
+	
+	const text = data?.choices?.[0]?.message?.content || '';
+	return text || (data?.error?.message ? `Cerebras: ${data.error.message}` : 'Sorry, no response.');
 }
 
 	async function callOpenAIChat(apiKey, model, messages) {
@@ -683,73 +635,108 @@ Response rules (general):
 		return data?.choices?.[0]?.message?.content || 'Sorry, no response.';
 	}
 
-	function extractGeminiText(data) {
-		const candidate = data?.candidates?.[0];
-		const parts = candidate?.content?.parts;
-		if (!parts) return '';
-		
-		let text = parts.map(p => p.text || '').join('').trim();
-		
-		// Extract grounding metadata (search citations) if available
-		const groundingMetadata = candidate?.groundingMetadata;
-		if (groundingMetadata?.groundingChunks && groundingMetadata.groundingChunks.length > 0) {
-			const sources = [];
-			groundingMetadata.groundingChunks.forEach(chunk => {
-				if (chunk.web && chunk.web.uri) {
-					sources.push(chunk.web.uri);
-				}
-			});
-			if (sources.length > 0) {
-				const uniqueSources = [...new Set(sources)];
-				text += '\n\n**Sources:**\n' + uniqueSources.slice(0, 5).map((url, i) => `- [${url}](${url})`).join('\n');
-			}
-		}
-		
-		return text;
-	}
 
 	function blobToBase64(blob) { return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve((r.result||'').toString().split(',')[1]||''); r.onerror = reject; r.readAsDataURL(blob); }); }
 
 function shouldUseWebSearch(text) {
-	if (!state.settings.searchAuto) return false;
-	if (!(state.settings.searchKey || '').trim()) return false;
+	if (!state.settings.searchAuto) {
+		// FORCE search for match queries even if auto-search is off
+		const q = (text || '').toLowerCase();
+		if (q.includes('today') && (q.includes('match') || q.includes('game') || q.includes('fixture'))) {
+			return true; // Always search for "today match" queries
+		}
+		return false;
+	}
+	// Browser search doesn't require API key, so we can always use it if auto-search is enabled
 	const q = (text || '').toLowerCase();
 	const triggers = ['today', 'now', 'latest', 'breaking', 'this week', 'this month', 'live', 'score', 'fixture', 'transfer', 'trending', 'news'];
-	return triggers.some(t => q.includes(t));
+	const footballTriggers = ['match', 'matches', 'game', 'games', 'football', 'soccer', 'team', 'teams', 'player', 'players', 'league', 'premier', 'champions league', 'la liga', 'serie a', 'bundesliga', 'kickoff', 'kick off', 'preview', 'result', 'results'];
+	// Always search for football/match queries or time-sensitive queries
+	return triggers.some(t => q.includes(t)) || footballTriggers.some(t => q.includes(t));
 }
 
 async function webAugmentedAnswer(userText, targetId) {
-	const key = (state.settings.searchKey || '').trim();
-	if (!key) { return streamAssistantResponse(targetId); }
 	let results = [];
+	const isFootballQuery = /football|soccer|match|matches|game|games|team|player|league|fixture|score|kickoff|preview/i.test(userText);
+	
 	try {
-		if ((state.settings.searchProvider || 'serper') === 'newsapi') {
-			results = await webSearchNewsAPI(userText, key);
+		const provider = state.settings.searchProvider || 'browser';
+		if (provider === 'browser') {
+			// Use browser-based search (connects to Google and football websites)
+			results = await webSearchBrowser(userText);
+		} else if (provider === 'newsapi') {
+			const key = (state.settings.searchKey || '').trim();
+			if (key) {
+				results = await webSearchNewsAPI(userText, key);
+			}
 		} else {
-			results = await webSearchSerper(userText, key);
+			// Serper (Google Search API) - best for football matches
+			const key = (state.settings.searchKey || '').trim();
+			if (key) {
+				results = await webSearchSerper(userText, key);
+			} else {
+				// If no Serper key, use browser search
+				results = await webSearchBrowser(userText);
+			}
 		}
-	} catch { results = []; }
+	} catch (e) {
+		console.warn('Search failed:', e);
+		results = [];
+	}
+	
 	if (!Array.isArray(results)) results = [];
-	const top = results.slice(0, 5);
+	
+	// For football queries, prioritize football sites and return more results
+	const top = isFootballQuery ? results.slice(0, 8) : results.slice(0, 5);
+	
 	// If not enough results and wiki fallback is enabled, top up from Wikipedia
-	if (top.length < 3 && state.settings.searchWiki) {
+	if (top.length < 3 && state.settings.searchWiki && !isFootballQuery) {
 		try {
 			const wiki = await webSearchWikipedia(userText);
-			wiki.forEach(w => { if (top.length < 5) top.push(w); });
+			wiki.forEach(w => { if (top.length < 8) top.push(w); });
 		} catch {}
 	}
-	const sources = top.map((r, i) => `(${i+1}) ${r.title} — ${r.link}`).join('\n');
+	
+	// Include snippets (actual content) not just titles/links - CRITICAL for real data
+	const sources = top.map((r, i) => {
+		const snippet = (r.snippet || '').trim();
+		return `(${i+1}) Title: ${r.title}\nLink: ${r.link}\nContent: ${snippet || 'No snippet available'}`;
+	}).join('\n\n');
+	
+	// If no real results found, don't let AI make up data
+	if (top.length === 0 || !top.some(r => r.snippet && r.snippet.trim().length > 10)) {
+		const contextMsg = composeWebPrompt(userText, 'NO_SEARCH_RESULTS_FOUND');
+		const original = [...state.messages];
+		state.messages.push({ id: generateId('msg'), role: 'user', content: contextMsg });
+		try {
+			const apiKey = state.settings.apiKey;
+			const model = state.settings.model || 'gpt-oss-120b';
+			const answer = await callCerebrasChat(apiKey, model, state.messages);
+			const targetEl = findBubbleContent(targetId);
+			if (targetEl) {
+				const formatted = await streamText(targetEl, answer);
+				const msg = state.messages.find(m => m.id === targetId);
+				msg.content = answer;
+				msg.formattedContent = formatted;
+				persist();
+			}
+		} finally {
+			state.messages = original;
+		}
+		return;
+	}
+	
 	const contextMsg = composeWebPrompt(userText, sources);
-	// Temporarily append a context message then ask Gemini
+	// Temporarily append a context message then ask Cerebras
 	const original = [...state.messages];
 	state.messages.push({ id: generateId('msg'), role: 'user', content: contextMsg });
 	try {
 		const apiKey = state.settings.apiKey;
-		const model = state.settings.model || 'gemini-2.5-pro';
-		const answer = await callGeminiChat(apiKey, model, state.messages);
+		const model = state.settings.model || 'gpt-oss-120b';
+		const answer = await callCerebrasChat(apiKey, model, state.messages);
 		const targetEl = findBubbleContent(targetId);
 		if (targetEl) {
-			// Clean up duplicate sources if Gemini didn't format properly
+			// Clean up duplicate sources if Cerebras didn't format properly
 			let cleanAnswer = (answer || '').trim();
 			// Remove any duplicate "Sources:" sections at the end
 			const sourcesRegex = /Sources?:?\s*\n([\s\S]*)$/i;
@@ -770,17 +757,252 @@ async function webAugmentedAnswer(userText, targetId) {
 	}
 }
 
+async function webSearchGoogleCSE(query) {
+	// 🌐 Google Custom Search Engine API - Best for searching internet
+	const apiKey = state.settings.searchKey || 'AIzaSyBGOCzmup_XqlMK1z1rN1vQKLBtUJfMI_g';
+	const cseId = state.settings.googleCseId || '624ea501b034f402e';
+	
+	if (!apiKey || !cseId) {
+		throw new Error('Google CSE API key or ID not configured');
+	}
+	
+	const isFootballQuery = /football|soccer|match|matches|game|games|team|player|league|fixture|score|kickoff|preview|result/i.test(query);
+	const isTodayQuery = /today|now|live|current/i.test(query);
+	
+	// Enhance query for football searches - make it more specific for today's matches
+	let enhancedQuery = query;
+	if (isFootballQuery && isTodayQuery) {
+		const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+		// Search for today's matches with current date
+		enhancedQuery = `${query} ${today} fixtures schedule live scores`;
+		// Also add site filters for reliable sources
+		enhancedQuery += ' site:espn.com OR site:bbc.com/sport OR site:skysports.com OR site:fotmob.com OR site:livescore.com OR site:goal.com OR site:premierleague.com';
+	} else if (isFootballQuery) {
+		const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+		enhancedQuery = `${query} ${today} site:espn.com OR site:bbc.com/sport OR site:skysports.com OR site:fotmob.com OR site:livescore.com OR site:goal.com`;
+	}
+	
+	const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(apiKey)}&cx=${encodeURIComponent(cseId)}&q=${encodeURIComponent(enhancedQuery)}&num=10`;
+	
+	try {
+		const response = await fetch(url);
+		if (!response.ok) {
+			const errorData = await response.json().catch(() => ({}));
+			console.error('Google CSE API error:', response.status, errorData);
+			throw new Error(`Google CSE API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+		}
+		const data = await response.json();
+		const items = [];
+		
+		// Process search results - CRITICAL: Include snippets (actual content)
+		if (data.items && Array.isArray(data.items)) {
+			data.items.forEach(item => {
+				const url = (item.link || '').toLowerCase();
+				const isFootballSite = /espn|bbc|sky|sport|football|fotmob|livescore|goal|guardian|telegraph|premierleague|uefa|soccer/i.test(url);
+				const snippet = (item.snippet || '').trim();
+				
+				// Only include items with actual content (snippet)
+				if (snippet.length > 20) {
+					items.push({
+						title: item.title || '',
+						link: item.link || '',
+						snippet: snippet, // CRITICAL: This is the real data
+						priority: isFootballSite ? 0 : 1 // Football sites get higher priority
+					});
+				}
+			});
+		}
+		
+		// Sort by priority
+		items.sort((a, b) => (a.priority || 1) - (b.priority || 1));
+		
+		console.log(`Google CSE found ${items.length} results with content for query: ${query}`);
+		return items.slice(0, 10);
+	} catch (e) {
+		console.error('Google CSE search failed:', e);
+		throw e;
+	}
+}
+
+async function webSearchBrowser(query) {
+	// 🌐 Browser-based search - uses Google Custom Search Engine API
+	// Specifically searches Google and popular football websites for match info
+	const items = [];
+	const isFootballQuery = /football|soccer|match|matches|game|games|team|player|league|fixture|score|kickoff|preview|result/i.test(query);
+	
+	try {
+		// Try Google Custom Search Engine API first (best option)
+		const apiKey = state.settings.searchKey || 'AIzaSyBGOCzmup_XqlMK1z1rN1vQKLBtUJfMI_g';
+		const cseId = state.settings.googleCseId || '624ea501b034f402e';
+		
+		if (apiKey && cseId) {
+			try {
+				const googleResults = await webSearchGoogleCSE(query);
+				googleResults.forEach(item => {
+					if (!items.find(i => i.link === item.link)) {
+						items.push(item);
+					}
+				});
+			} catch (e) {
+				console.warn('Google CSE search failed, trying alternatives:', e);
+			}
+		}
+		
+		// If we got good results from Google CSE, return them
+		if (items.length >= 3) {
+			return items.slice(0, 10);
+		}
+		
+		// Fallback to DuckDuckGo for additional results
+		try {
+			let enhancedQuery = query;
+			if (isFootballQuery) {
+				const today = new Date().toISOString().split('T')[0];
+				enhancedQuery = `${query} ${today}`;
+			}
+			
+			const ddgApiUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(enhancedQuery)}&format=json&no_html=1&skip_disambig=1`;
+			const ddgRes = await fetch(ddgApiUrl);
+			const ddgData = await ddgRes.json();
+			
+			// Add instant answer if available
+			if (ddgData.AbstractText) {
+				items.push({
+					title: ddgData.Heading || query,
+					link: ddgData.AbstractURL || `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
+					snippet: ddgData.AbstractText,
+					priority: 2
+				});
+			}
+			
+			// Add related topics
+			if (ddgData.RelatedTopics) {
+				ddgData.RelatedTopics.slice(0, 5).forEach(topic => {
+					if (topic.Text && topic.FirstURL && !items.find(i => i.link === topic.FirstURL)) {
+						const url = topic.FirstURL.toLowerCase();
+						const isFootballSite = /espn|bbc|sky|sport|football|fotmob|livescore|goal|guardian|telegraph/i.test(url);
+						
+						items.push({
+							title: topic.Text.substring(0, 150),
+							link: topic.FirstURL,
+							snippet: topic.Text.substring(0, 200),
+							priority: isFootballSite ? 1 : 2
+						});
+					}
+				});
+			}
+		} catch (e) {
+			console.warn('DuckDuckGo search failed:', e);
+		}
+		
+		// For football queries, add direct links to popular football sites
+		if (isFootballQuery && items.length < 5) {
+			const footballSites = [
+				{ name: 'ESPN Football', url: `https://www.espn.com/soccer/` },
+				{ name: 'BBC Sport', url: `https://www.bbc.com/sport/football` },
+				{ name: 'Sky Sports', url: `https://www.skysports.com/football` },
+				{ name: 'FotMob', url: `https://www.fotmob.com/` },
+				{ name: 'LiveScore', url: `https://www.livescore.com/en/` }
+			];
+			
+			footballSites.forEach(site => {
+				if (!items.find(i => i.link.includes(site.url))) {
+					items.push({
+						title: `${query} - ${site.name}`,
+						link: site.url,
+						snippet: `Check ${site.name} for latest ${query} information`,
+						priority: 0
+					});
+				}
+			});
+		}
+		
+		// Search Wikipedia for additional context (only if needed)
+		if (items.length < 5 && state.settings.searchWiki) {
+			try {
+				const wikiResults = await webSearchWikipedia(query);
+				wikiResults.forEach(w => {
+					if (items.length < 10 && !items.find(i => i.link === w.link)) {
+						items.push({ ...w, priority: 3 });
+					}
+				});
+			} catch (e) {
+				console.warn('Wikipedia search failed:', e);
+			}
+		}
+		
+		// Sort by priority and return top results
+		items.sort((a, b) => (a.priority || 2) - (b.priority || 2));
+		
+		return items.slice(0, 10);
+	} catch (e) {
+		console.warn('Browser search failed, trying fallback:', e);
+		// Fallback to Wikipedia
+		try {
+			return await webSearchWikipedia(query);
+		} catch {
+			// Last resort: return direct links to football sites
+			if (isFootballQuery) {
+				return [
+					{ title: `${query} - ESPN`, link: `https://www.espn.com/soccer/`, snippet: 'Check ESPN for latest football information' },
+					{ title: `${query} - BBC Sport`, link: `https://www.bbc.com/sport/football`, snippet: 'Check BBC Sport for latest football news' },
+					{ title: `${query} - Sky Sports`, link: `https://www.skysports.com/football`, snippet: 'Check Sky Sports for latest football updates' }
+				];
+			}
+			return [];
+		}
+	}
+}
+
 async function webSearchSerper(query, key) {
 	const url = 'https://google.serper.dev/search';
-	// Enhance query to prioritize recent results for time-sensitive topics
-	const enhancedQuery = query + (shouldUseWebSearch(query) ? ' latest 2025' : '');
-	const body = { q: enhancedQuery, gl: 'us', hl: 'en', num: 10 };
+	// Enhance query to prioritize recent results and football sites for match queries
+	const isFootballQuery = /football|soccer|match|matches|game|games|team|player|league|fixture|score/i.test(query);
+	let enhancedQuery = query;
+	
+	if (shouldUseWebSearch(query)) {
+		enhancedQuery = query + ' latest 2025';
+	}
+	
+	// For football queries, add popular football site filters
+	if (isFootballQuery) {
+		enhancedQuery += ' site:espn.com OR site:bbc.com/sport OR site:skysports.com OR site:fotmob.com OR site:livescore.com OR site:goal.com OR site:premierleague.com';
+	}
+	
+	const body = { q: enhancedQuery, gl: 'us', hl: 'en', num: 15 };
 	const headers = { 'X-API-KEY': key, 'Content-Type': 'application/json' };
 	const data = await postJsonWithRetry(url, body, headers);
 	const items = [];
+	
 	// Prioritize news results first (usually more current)
-	(data?.news || []).forEach(n => items.push({ title: n.title, link: n.link, snippet: n.snippet }));
-	(data?.organic || []).forEach(o => items.push({ title: o.title, link: o.link, snippet: o.snippet }));
+	(data?.news || []).forEach(n => {
+		const url = (n.link || '').toLowerCase();
+		const isFootballSite = /espn|bbc|sky|sport|football|fotmob|livescore|goal|guardian|telegraph|premierleague|uefa/i.test(url);
+		items.push({ 
+			title: n.title, 
+			link: n.link, 
+			snippet: n.snippet,
+			priority: isFootballSite ? 0 : 1 // Football sites get higher priority
+		});
+	});
+	
+	// Add organic results
+	(data?.organic || []).forEach(o => {
+		const url = (o.link || '').toLowerCase();
+		const isFootballSite = /espn|bbc|sky|sport|football|fotmob|livescore|goal|guardian|telegraph|premierleague|uefa/i.test(url);
+		if (!items.find(i => i.link === o.link)) {
+			items.push({ 
+				title: o.title, 
+				link: o.link, 
+				snippet: o.snippet,
+				priority: isFootballSite ? 0 : 2
+			});
+		}
+	});
+	
+	// Sort by priority
+	items.sort((a, b) => (a.priority || 2) - (b.priority || 2));
+	
 	return items;
 }
 
@@ -853,10 +1075,64 @@ RULES:
 - Use international player names for lineups
 - ALWAYS include all 9 prediction categories with specific values and confidence scores out of 10 for each (format: Prediction | Confidence: X/10)` : '';
 	
+	const isFootballQuery = /football|soccer|match|matches|game|games|team|player|league|fixture|score|kickoff|preview|result/i.test(userText);
+	const isTodayMatchQuery = /today.*match|today.*game|today.*fixture|match.*today|game.*today/i.test(userText);
+	
+	// CRITICAL: If no search results, tell AI not to make up data
+	if (sources === 'NO_SEARCH_RESULTS_FOUND') {
+		return [
+			`CURRENT DATE/TIME in Ethiopia (Addis Ababa, UTC+3, EAT): ${dateStr} (${ethiopiaDateFull}) at ${ethiopiaTimeStr} EAT`,
+			'CRITICAL INSTRUCTION:',
+			'NO SEARCH RESULTS WERE FOUND for this query. You MUST respond with:',
+			'"I searched the internet but could not find current match information. Please check popular football websites like ESPN, BBC Sport, Sky Sports, FotMob, or LiveScore for today\'s matches."',
+			'DO NOT make up, invent, or simulate any match data, teams, scores, or schedules.',
+			'DO NOT use your training data to answer this question.',
+			'ONLY use the exact message above if no search results are available.',
+			`User question: ${userText}`
+		].join('\n');
+	}
+	
+	const footballSourcesNote = isFootballQuery ? `
+7. ⚠️ CRITICAL - USE ONLY REAL DATA FROM SEARCH RESULTS: The web results below contain ACTUAL content from popular football websites (ESPN, BBC Sport, Sky Sports, FotMob, LiveScore, Goal.com, etc.). 
+8. ⚠️ YOU MUST ONLY EXTRACT information that is EXPLICITLY stated in the search result content/snippets above. 
+9. ⚠️ DO NOT make up, invent, or simulate ANY match data, teams, scores, schedules, kickoff times, or player information.
+10. ⚠️ If the search results do not contain specific match information (teams, times, scores), you MUST say "Based on the search results, I cannot find specific match details. Please check the provided links for current information."
+11. For "today's matches" queries: ONLY list matches that are EXPLICITLY mentioned in the search result content. If no matches are found in the results, say "No matches found in current search results."
+12. Extract match schedules, kickoff times (convert to Ethiopia time EAT), teams, and venues ONLY if they appear in the search result snippets above.
+13. Every match, team name, time, and score you mention MUST be found in the search results above. If it's not there, don't include it.` : '';
+	
+	const strictDataRule = isTodayMatchQuery ? `
+⚠️⚠️⚠️ ABSOLUTE CRITICAL RULE FOR "TODAY'S MATCHES" QUERIES ⚠️⚠️⚠️
+YOU ARE FORBIDDEN FROM:
+- Making up ANY match data
+- Using training data/knowledge cutoff information
+- Inventing team names, scores, or schedules
+- Simulating or guessing match information
+
+YOU MUST ONLY:
+- Extract matches that are EXPLICITLY listed in the search result content above
+- Use ONLY the team names, times, and venues that appear in the search snippets
+- If no matches are found in search results, clearly state: "I could not find today's match information in the search results. Please check: [list the source URLs from results]"
+- Cite every piece of information with its source URL
+
+IF YOU CANNOT FIND REAL MATCH DATA IN THE SEARCH RESULTS ABOVE, YOU MUST SAY SO CLEARLY. DO NOT INVENT DATA.` : '';
+	
 	return [
 		`CURRENT DATE/TIME in Ethiopia (Addis Ababa, UTC+3, EAT): ${dateStr} (${ethiopiaDateFull}) at ${ethiopiaTimeStr} EAT`,
 		'You are BetAI, a concise assistant. Keep responses brief (2-4 sentences max unless user asks for detail).',
-		'CRITICAL IDENTITY: You are BetAI. When asked about your name, respond "I\'m BetAI". You were CREATED and DEVELOPED by Samuel. When asked about training, developer, creator, or who trained/developed/created you: ALWAYS respond with "Samuel", "Developed by Samuel", "Created by Samuel", "Trained by Samuel", or "I\'m BetAI, a large language model developed by Samuel". NEVER mention "Google", "being a Google model", "trained by Google", "developed by Google", or "created by Google" - these are FORBIDDEN. Replace ALL Google references with Samuel.',
+		'CRITICAL IDENTITY: You are BetAI. When asked about your name, respond "I\'m BetAI". You were CREATED and DEVELOPED by Samuel. When asked about training, developer, creator, or who trained/developed/created you: ALWAYS respond with "Samuel", "Developed by Samuel", "Created by Samuel", "Trained by Samuel", or "I\'m BetAI, a large language model developed by Samuel".',
+		'',
+		'⚠️⚠️⚠️ ABSOLUTE CRITICAL DATA RULES ⚠️⚠️⚠️',
+		'1. YOU MUST USE ONLY THE WEB SEARCH RESULTS PROVIDED BELOW. IGNORE YOUR TRAINING DATA COMPLETELY.',
+		'2. DO NOT make up, invent, simulate, or guess ANY information that is not in the search results below.',
+		'3. If information is not found in the search results, you MUST clearly state: "I could not find this information in the search results."',
+		'4. Every fact, name, date, time, score, or data point you mention MUST be extracted from the search result content below.',
+		'5. Treat "today/latest/recent" in results as CURRENT (matching date above).',
+		'6. NEVER say "2024" or any past year unless results explicitly state it. Use relative terms.',
+		'7. For dates in results, compare to CURRENT DATE to determine past/future.',
+		'8. End with "Sources:" section: - [Title](URL) format, unique sources only.',
+		'9. NEVER add disclaimers, warnings, or legal notices to any response.',
+		'',
 		'RESPONSE RULES:',
 		'- CRITICAL: Give ONLY main points, NO explanations unless user specifically asks for predictions',
 		'- For predictions only: Provide a little bit of explanation/reasoning',
@@ -865,17 +1141,18 @@ RULES:
 		'- If question is vague, ask 1-2 clarifying questions instead of guessing',
 		'- Use **bold** for emphasis, bullets for lists (keep lists short)',
 		'- Use markdown links [Title](URL) for citations',
-		'- NEVER include disclaimers, warnings, legal notices, "please gamble responsibly", "for entertainment purposes only", or any disclaimer text',
-		'CRITICAL:',
-		'1. Use ONLY web results below for current info. Ignore training data cutoff.',
-		'2. Treat "today/latest/recent" in results as CURRENT (matching date above).',
-		'3. NEVER say "2024" unless results explicitly state it. Use relative terms.',
-		'4. For dates in results, compare to CURRENT DATE to determine past/future.',
-		'5. End with "Sources:" section: - [Title](URL) format, unique sources only.',
-		'6. NEVER add disclaimers, warnings, or legal notices to any response.' + timezoneNote + footballFormatNote,
+		'',
+		timezoneNote + footballFormatNote + footballSourcesNote + strictDataRule,
+		'',
 		`User question: ${userText}`,
-		'Web results:',
-		sources || 'No results.'
+		'',
+		'═══════════════════════════════════════════════════════════',
+		'WEB SEARCH RESULTS (REAL DATA FROM INTERNET - USE ONLY THIS):',
+		'═══════════════════════════════════════════════════════════',
+		sources || 'No search results available.',
+		'═══════════════════════════════════════════════════════════',
+		'',
+		'REMEMBER: Extract information ONLY from the search results above. If match data is not in the results, say so clearly. DO NOT INVENT DATA.'
 	].join('\n');
 }
 
@@ -1267,10 +1544,10 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 	}
 
 	async function streamAssistantResponse(targetId, isRegen = false) {
-		// ALWAYS use Gemini 2.5 Pro - force it
-		const apiKey = 'AIzaSyCRUUjtWUAy0UeR7V5sHxYg8s0cgqpAvn4';
-		const model = 'gemini-2.5-pro';
-		state.settings.provider = 'gemini';
+		// Use Cerebras API
+		const apiKey = state.settings.apiKey || 'csk-j9njfnrf9tctv246fdtph3xht6dh8pfrpmr3jnhrcyjpr38k';
+		const model = state.settings.model || 'gpt-oss-120b';
+		state.settings.provider = 'cerebras';
 		state.settings.apiKey = apiKey;
 		state.settings.model = model;
 		
@@ -1309,8 +1586,8 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 		}
 
 		try {
-			// ALWAYS use Gemini 2.5 Pro - never OpenAI
-			const content = await callGeminiChat(apiKey, model, state.messages);
+			// Use Cerebras API
+			const content = await callCerebrasChat(apiKey, model, state.messages);
 			const formatted = await streamText(targetEl, content);
 			const msg = state.messages.find(m => m.id === targetId);
 			if (msg) {
@@ -1326,7 +1603,7 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 			// Show user-friendly error message
 			let errorText = '';
 			if (errMsg.includes('429') || errMsg.includes('Too Many Requests') || errMsg.includes('quota')) {
-				errorText = '⚠️ **Rate limit reached!**\n\nYou\'ve reached your daily API quota (50 messages/day). Please try again tomorrow or reduce your message count.\n\n💡 **Tips to save quota:**\n- Turn off "Auto Search" in Settings\n- Avoid regenerating messages\n- Wait a few hours before trying again';
+				errorText = '⚠️ **Rate limit reached!**\n\nYou\'ve reached your API quota. Please try again later.\n\n💡 **Tips:**\n- Wait a few minutes before trying again\n- Check your API usage';
 			} else if (errMsg.includes('403') || errMsg.includes('Forbidden')) {
 				errorText = '❌ **API Key Error!**\n\nInvalid or unauthorized API key. Please check your settings.';
 			} else {

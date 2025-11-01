@@ -80,20 +80,25 @@
 				<label class="field">
 					<span class="field__label">Provider</span>
 					<select id="provider">
-						<option value="gemini">Google Gemini</option>
+						<option value="cerebras">Cerebras</option>
 						<option value="openai">OpenAI</option>
 					</select>
 				</label>
 				<label class="field">
-					<span class="field__label">Web Search Provider</span>
+					<span class="field__label">🌐 Web Search Provider</span>
 					<select id="searchProvider">
+						<option value="browser">Browser Search (Google CSE - Internet Connected)</option>
 						<option value="serper">Serper.dev (Google Search)</option>
 						<option value="newsapi">NewsAPI.org (News)</option>
 					</select>
 				</label>
 				<label class="field">
-					<span class="field__label">Search API Key</span>
-					<input id="searchKey" type="password" placeholder="serper key..." />
+					<span class="field__label">Google API Key (for Google Custom Search)</span>
+					<input id="searchKey" type="password" placeholder="AIza..." value="AIzaSyBGOCzmup_XqlMK1z1rN1vQKLBtUJfMI_g" />
+				</label>
+				<label class="field">
+					<span class="field__label">Google CSE ID (Custom Search Engine ID)</span>
+					<input id="googleCseId" type="text" placeholder="624ea..." value="624ea501b034f402e" />
 				</label>
 				<label class="field">
 					<span class="field__label">Auto web search for fresh queries</span>
@@ -104,12 +109,12 @@
 					<input id="searchWiki" type="checkbox" />
 				</label>
 				<label class="field">
-					<span class="field__label">OpenAI API Key (optional)</span>
-					<input id="apiKey" type="password" placeholder="sk-..." />
+					<span class="field__label">Cerebras API Key</span>
+					<input id="apiKey" type="password" placeholder="csk-..." />
 				</label>
 				<label class="field">
 					<span class="field__label">Model</span>
-					<input id="model" type="text" value="gemini-2.5-pro" />
+					<input id="model" type="text" value="gpt-oss-120b" />
 				</label>
 				<label class="field">
 					<span class="field__label">Speech Engine</span>
