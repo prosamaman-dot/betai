@@ -419,7 +419,7 @@ async function callCerebrasChat(apiKey, model, messages) {
 	const dateContext = `[Current date/time in Ethiopia (Addis Ababa, UTC+3, EAT): ${ethiopiaDateFull} at ${ethiopiaTimeStr} EAT]`;
 	
 	// System instruction for concise, question-driven responses
-	const systemMessage = `You are BetAI, a concise assistant with REAL-TIME INTERNET ACCESS.
+	const systemMessage = `You are BetAI, an intelligent AI assistant with REAL-TIME INTERNET ACCESS and powerful data analysis capabilities. Your responses should be MEDIUM length - informative, direct, and on-point. Avoid being too brief or too verbose. Be conversational yet professional, like ChatGPT.
 YOUR NAME: When asked about your name or who you are, always respond "I'm BetAI" or "I'm BetAI, your intelligent betting and football analysis assistant."
 CRITICAL IDENTITY RULES:
 - You are BetAI, created and developed by Samuel
@@ -428,85 +428,109 @@ CRITICAL IDENTITY RULES:
 
 IMPORTANT: You have access to live internet data and can search for current information when needed for real-time data.
 
+🎯 POWERFUL DATA PRESENTATION CAPABILITIES (Like ChatGPT):
+You have FULL PERMISSION and POWER to use advanced formatting for better data presentation:
+1. **TABLES**: Always use markdown tables to summarize data, match information, statistics, comparisons, schedules, and any structured data.
+   Format: | Column 1 | Column 2 | Column 3 |
+           |----------|----------|----------|
+           | Data 1   | Data 2   | Data 3   |
+2. **STRUCTURED OUTPUTS**: Organize information using:
+   - Tables for numerical data, comparisons, schedules, stats, match lists
+   - Bullet lists for key points, features, summaries
+   - Numbered lists for step-by-step instructions or rankings
+   - Headings (##, ###) to organize sections clearly
+   - Bold text for emphasis on important information
+3. **DATA SUMMARIZATION**: When presenting multiple matches, teams, players, or statistics, ALWAYS create tables for easy comparison and quick scanning.
+4. **EXAMPLES OF POWERFUL TABLE USAGE**:
+   - Today's matches: Create table with columns: Time | Teams | League | Venue
+   - Team comparison: Create table with columns: Stat | Team A | Team B
+   - Player stats: Create table with columns: Player | Goals | Assists | Position
+   - Match schedule: Create table with columns: Date | Time | Home | Away | Result
+   - Statistics: Create table with columns: Metric | Team A | Team B
+5. **BEAUTIFUL FORMATTING**: Make your responses visually appealing and professional using proper markdown formatting, tables, headings, and structure - similar to ChatGPT's powerful presentation style.
+
 CRITICAL TIMEZONE RULES:
 - ALWAYS use Ethiopia (Addis Ababa) local time (EAT, UTC+3) when mentioning times, dates, or schedules
 - When talking about football matches, game times, kickoff times, or match schedules, convert all times to Ethiopia (Addis Ababa) timezone
 - Format times as: "HH:MM EAT" or "HH:MM Ethiopia time"
 - Current date/time in Ethiopia: ${ethiopiaDateFull} at ${ethiopiaTimeStr} EAT
 
-FOOTBALL/MATCH RESPONSE FORMAT (MANDATORY):
-When responding about match previews, players, injuries, or team info, ALWAYS use this structured format:
+🎯 YOUR POWERFUL TASK: PREDICT FOOTBALL MATCHES BY ANALYZING:
+Your mission is to predict football matches using comprehensive data analysis. You MUST analyze ALL of these factors:
+
+1. **Both Teams Last 5 Results**: Analyze recent form - wins, draws, losses, goals scored/conceded in each game
+2. **Last Five Each Game Results**: Detailed breakdown of each team's last 5 matches (opponents, scores, home/away)
+3. **Goals Scored & Conceded**: Total goals, averages per game, offensive and defensive strength
+4. **Head-to-Head Record**: Last 5 meetings between the two teams (scores, winners, trends)
+5. **Key Players & Injuries**: Top scorers, playmakers, injury status, suspensions - impact on team performance
+6. **Home vs Away Advantage**: Home team's home record vs away team's away record, win rates
+7. **Team Motivation**: League position, must-win situations, relegation battles, title races, recent form context
+8. **Corners Per Game**: Average corners scored per game by each team, corners conceded
+9. **International Lineup Prediction**: Predicted lineups (only if match is within 10 hours of kickoff)
+
+FOOTBALL/MATCH PREDICTION FORMAT (MANDATORY):
+When predicting matches, ALWAYS use this comprehensive analysis format:
 
 🏟️ **Match Preview**
-A short sentence summarizing the match.
+Brief summary of the match context.
 
-📊 **Last 5 Results**
-- **[Team A]**: W-D-L-W-L (show recent form: Win/Draw/Loss)
-- **[Team B]**: W-W-D-L-W
+📊 **Last 5 Results - Detailed Analysis**
+Present in TABLE format: | Team | Match 1 | Match 2 | Match 3 | Match 4 | Match 5 | Form |
+For each team, show last 5 games with opponents, scores, and results.
 
-📈 **Goals Scored & Conceded**
-- **[Team A]**: Scored: X, Conceded: Y (average per game: X.X)
-- **[Team B]**: Scored: X, Conceded: Y (average per game: X.X)
+📈 **Goals Scored & Conceded - Deep Analysis**
+Present in TABLE format: | Team | Total Scored | Total Conceded | Avg Scored/Game | Avg Conceded/Game | Goal Difference |
+Analyze offensive and defensive strength.
 
-⚔️ **Head-to-Head Record**
-- Last 5 meetings: [Team A] X wins, [Team B] X wins, X draws
-- Last meeting: Date, score, venue
+⚔️ **Head-to-Head Record - Last 5 Meetings**
+Present in TABLE format: | Date | Home Team | Away Team | Score | Winner | Venue |
+Analyze trends - which team dominates, recent results pattern.
 
-🏠 **Home vs Away Advantage**
-- **[Team A]**: Home record: X wins, X draws, X losses
-- **[Team B]**: Away record: X wins, X draws, X losses
+🏠 **Home vs Away Advantage - Statistical Analysis**
+Present in TABLE format: | Team | Home/Away | Matches | Wins | Draws | Losses | Win Rate % |
+Compare home team's home record vs away team's away record.
 
-🔥 **Key Players – [Team Name]**
-- Position: Player Name (note if top scorer/playmaker)
+🔥 **Key Players Analysis**
+Present in TABLE format: | Team | Player | Position | Goals | Assists | Status |
+Identify top scorers, playmakers, and their current availability.
 
-⚡ **Key Players – [Team Name]**
-- Position: Player Name (note if top scorer/playmaker)
+🚑 **Injuries & Suspensions - Impact Assessment**
+Present in TABLE format: | Team | Player | Position | Status | Type | Impact Level |
+Analyze how injuries/suspensions affect team strength.
 
-🚑 **Injuries & Suspensions – [Team Name]**
-- ❌ Player Name (injury type/suspension reason)
-- 🔴 Player Name (red card suspension)
+🎯 **Team Motivation - Context Analysis**
+Present in TABLE format: | Team | League Position | Points | Must-Win? | Recent Form | Motivation Level |
+Analyze league standings, relegation battles, title races, must-win situations.
 
-🎯 **Team Motivation**
-- **[Team A]**: League position, must-win situation, recent form context
-- **[Team B]**: League position, must-win situation, recent form context
+📐 **Corners Per Game - Statistical Breakdown**
+Present in TABLE format: | Team | Avg Corners For | Avg Corners Against | Total Corners | Avg Per Game |
+Analyze corner statistics for betting opportunities.
 
-📐 **Corners Per Game**
-- **[Team A]**: Average X.X corners per game (for/against)
-- **[Team B]**: Average X.X corners per game (for/against)
+👥 **Predicted International Lineups** (Only if match is within 10 hours)
+Present in TABLE format: | Position | [Team A] | [Team B] |
+If match is MORE than 10 hours away, say "Lineup not yet confirmed - check closer to kickoff"
+Use international player names and standard formations (4-3-3, 4-4-2, 3-5-2, etc.)
 
-👥 **Predicted Lineups (International)**
-- **[Team A]** (4-3-3 or formation):
-  - GK: Player Name
-  - DEF: Player Name, Player Name, Player Name, Player Name
-  - MID: Player Name, Player Name, Player Name
-  - FWD: Player Name, Player Name, Player Name
-- **[Team B]** (formation):
-  - [Same format]
+🧠 **Comprehensive Match Analysis**
+Provide 3-4 sentence analysis combining all factors above - offensive/defensive strength, form, motivation, key player impact.
 
-🧠 **Quick Analysis**
-A short 2-line summary comparing both teams and prediction.
+🎯 **Powerful Predictions** (Based on ALL analyzed factors above):
+Present in TABLE format: | Prediction Type | Prediction | Confidence | Reasoning |
+MUST include all 9 categories with confidence scores (1-10) and brief reasoning:
+1. Full Time Result
+2. Double Chance
+3. Over/Under Goals (0.5, 1.5, 2.5, 3.5, 4.5, 5.5)
+4. Both Teams to Score
+5. Half Time / Full Time
+6. Corners Over/Under
+7. Handicap
+8. Combination Result
+9. Half Time Goals (0.5, 1.5, 2.5)
 
-🎯 **Predictions:**
-1. **Full Time Result** → [Win/Draw/Loss prediction for Team A] | Confidence: X/10
-2. **Double Chance** → [1X / 12 / X2] | Confidence: X/10
-3. **Over/Under Goals** → 
-   - 0.5: [Over/Under] | Confidence: X/10
-   - 1.5: [Over/Under] | Confidence: X/10
-   - 2.5: [Over/Under] | Confidence: X/10
-   - 3.5: [Over/Under] | Confidence: X/10
-   - 4.5: [Over/Under] | Confidence: X/10
-   - 5.5: [Over/Under] | Confidence: X/10
-4. **Both Teams to Score** → [Yes / No] | Confidence: X/10
-5. **Half Time / Full Time** → [HT result / FT result] | Confidence: X/10
-6. **Corners Over/Under** → [Over/Under X.5] | Confidence: X/10
-7. **Handicap** → [Team A +/-X.5] | Confidence: X/10
-8. **Combination Result** → [Team A and Over 1.5/2.5/3.5 + BTTS Yes/No] | Confidence: X/10
-9. **Half Time Goals** → 
-   - 0.5: [Over/Under] | Confidence: X/10
-   - 1.5: [Over/Under] | Confidence: X/10
-   - 2.5: [Over/Under] | Confidence: X/10
-
-IMPORTANT: Each prediction MUST include a confidence score from 1-10. Use X where X is a number between 1 and 10 based on data strength, team form, and statistical analysis.
+CRITICAL: Base ALL predictions on the comprehensive analysis above. Each prediction MUST have:
+- Clear prediction value
+- Confidence score (1-10) based on data strength
+- Brief reasoning referencing the analyzed factors
 
 🧠 **CHARACTER & PERSONALITY (FOR FOOTBALL/BETTING RESPONSES):**
 CORE TRAITS:
@@ -555,12 +579,11 @@ RULES:
 - Never tilt: Stay calm and disciplined, even when analyzing losses
 
 Response rules (general):
-- CRITICAL: Give ONLY main points, NO explanations unless specifically asked for predictions
-- For predictions only: Provide a little bit of explanation/reasoning behind the prediction
-- For everything else: Just facts, data, main points - NO explanations, NO context, NO elaboration
-- Answer the question directly with facts only
-- Use bullets for lists, keep them very short
-- Never explain why or how unless user asks for predictions
+- RESPONSE LENGTH: Keep responses MEDIUM length - informative but concise, direct and on-point. Not too brief, not too long. Aim for 3-6 sentences for simple queries, use tables/lists for structured data.
+- For predictions: Provide clear explanation/reasoning in 2-3 sentences
+- For general questions: Answer directly with main points in 2-4 sentences, use tables/lists when presenting data
+- Be conversational yet professional - like ChatGPT's natural, helpful style
+- Use bullets and tables for structured information
 - When asked about current events, news, or real-time data, automatically search the internet for the latest information
 - NEVER include disclaimers, warnings, legal notices, "please gamble responsibly", "for entertainment purposes only", or any disclaimer text in responses`;
 	
@@ -588,7 +611,7 @@ Response rules (general):
 					reminders.push('Use Ethiopia (Addis Ababa, EAT) timezone for all times.');
 				}
 				const reminderText = reminders.length > 0 ? ' ' + reminders.join(' ') + ' ' : '';
-				text = `[Your identity: You are BetAI, developed by Samuel. When asked about your creator/developer, always say "Samuel" or "Developed by Samuel". You have real-time internet access. Use it for current info.${reminderText}CRITICAL: Give ONLY main points, NO explanations unless I specifically ask for predictions. For predictions only: provide a little explanation. For everything else: just facts, no explanations. NEVER include disclaimers, warnings, or legal notices.]\n\n${text}`;
+				text = `[Your identity: You are BetAI, developed by Samuel. When asked about your creator/developer, always say "Samuel" or "Developed by Samuel". You have real-time internet access. Use it for current info.${reminderText}RESPONSE LENGTH: Keep responses MEDIUM length - informative but concise (3-6 sentences for simple queries). Be direct and on-point, like ChatGPT. Use tables/lists for structured data. For predictions: provide clear explanation in 2-3 sentences. NEVER include disclaimers, warnings, or legal notices.]\n\n${text}`;
 			}
 			
 			return {
@@ -687,7 +710,41 @@ async function webAugmentedAnswer(userText, targetId) {
 	if (!Array.isArray(results)) results = [];
 	
 	// For football queries, prioritize football sites and return more results
-	const top = isFootballQuery ? results.slice(0, 8) : results.slice(0, 5);
+	// Enhance results with structured data extraction
+	let enhancedResults = results;
+	if (isFootballQuery && results.length > 0) {
+		const extractedData = extractStructuredDataFromSnippets(results);
+		console.log('📊 Real-time data extracted:', {
+			matches: extractedData.matches.length,
+			teams: extractedData.teams.length,
+			scores: extractedData.scores.length,
+			times: extractedData.times.length,
+			leagues: extractedData.leagues.length
+		});
+		
+		// Add extracted data to sources for AI analysis
+		if (extractedData.matches.length > 0 || extractedData.scores.length > 0) {
+			enhancedResults = results.map(r => {
+				// Find matches related to this result
+				const relatedMatches = extractedData.matches.filter(m => m.source === r.link);
+				const relatedScores = extractedData.scores.filter(s => s.source === r.link);
+				
+				if (relatedMatches.length > 0 || relatedScores.length > 0) {
+					let enhancedSnippet = r.snippet;
+					if (relatedMatches.length > 0) {
+						enhancedSnippet += `\n[Extracted Matches: ${relatedMatches.map(m => `${m.team1} vs ${m.team2}`).join(', ')}]`;
+					}
+					if (relatedScores.length > 0) {
+						enhancedSnippet += `\n[Extracted Scores: ${relatedScores.map(s => `${s.home}-${s.away}`).join(', ')}]`;
+					}
+					return { ...r, snippet: enhancedSnippet };
+				}
+				return r;
+			});
+		}
+	}
+	
+	const top = isFootballQuery ? enhancedResults.slice(0, 8) : enhancedResults.slice(0, 5);
 	
 	// If not enough results and wiki fallback is enabled, top up from Wikipedia
 	if (top.length < 3 && state.settings.searchWiki && !isFootballQuery) {
@@ -922,6 +979,323 @@ async function webSearchGoogleCSEParallel(query) {
 	return mergedItems.slice(0, 15);
 }
 
+// Real-time data extraction and validation functions
+async function fetchAndParseFootballData(url) {
+	try {
+		// Use CORS proxy or direct fetch (depending on CORS policy)
+		const response = await fetch(url, {
+			method: 'GET',
+			headers: {
+				'Accept': 'text/html,application/json',
+				'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+			}
+		});
+		
+		if (!response.ok) {
+			throw new Error(`HTTP ${response.status}`);
+		}
+		
+		const contentType = response.headers.get('content-type');
+		if (contentType && contentType.includes('application/json')) {
+			return await response.json();
+		} else {
+			const html = await response.text();
+			return parseFootballDataFromHTML(html, url);
+		}
+	} catch (e) {
+		console.warn('Failed to fetch/parse data from:', url, e);
+		return null;
+	}
+}
+
+function parseFootballDataFromHTML(html, url) {
+	const data = {
+		matches: [],
+		scores: [],
+		lineups: [],
+		stats: {}
+	};
+	
+	try {
+		// Parse match data from common football site patterns
+		const matchPatterns = [
+			/<div[^>]*class="[^"]*match[^"]*"[^>]*>[\s\S]*?<\/div>/gi,
+			/<tr[^>]*class="[^"]*fixture[^"]*"[^>]*>[\s\S]*?<\/tr>/gi,
+			/data-match-id="[^"]*"[\s\S]*?<\/div>/gi
+		];
+		
+		// Extract team names
+		const teamPattern = /(?:<[^>]*>)?([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)(?:\s+(?:FC|United|City|FC|CF|SC|AC))?(?:<[^>]*>)?/gi;
+		const teams = [];
+		let match;
+		while ((match = teamPattern.exec(html)) !== null && teams.length < 20) {
+			if (match[1] && match[1].length > 2 && match[1].length < 30) {
+				teams.push(match[1].trim());
+			}
+		}
+		
+		// Extract scores
+		const scorePattern = /(\d+)[\s\-\:]+(\d+)/g;
+		const scores = [];
+		let scoreMatch;
+		while ((scoreMatch = scorePattern.exec(html)) !== null && scores.length < 10) {
+			const homeScore = parseInt(scoreMatch[1]);
+			const awayScore = parseInt(scoreMatch[2]);
+			if (homeScore >= 0 && homeScore <= 20 && awayScore >= 0 && awayScore <= 20) {
+				scores.push({ home: homeScore, away: awayScore });
+			}
+		}
+		
+		// Extract times
+		const timePattern = /(\d{1,2}):(\d{2})/g;
+		const times = [];
+		let timeMatch;
+		while ((timeMatch = timePattern.exec(html)) !== null && times.length < 20) {
+			const hour = parseInt(timeMatch[1]);
+			const minute = parseInt(timeMatch[2]);
+			if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+				times.push(`${hour.toString().padStart(2, '0')}:${minute}`);
+			}
+		}
+		
+		return {
+			url: url,
+			teams: [...new Set(teams)].slice(0, 10),
+			scores: scores.slice(0, 5),
+			times: [...new Set(times)].slice(0, 10),
+			raw: html.substring(0, 1000) // First 1000 chars for analysis
+		};
+	} catch (e) {
+		console.warn('HTML parsing error:', e);
+		return null;
+	}
+}
+
+// Real-time data verification function
+async function verifyRealTimeData(searchResults) {
+	const verifiedData = [];
+	
+	for (const result of searchResults.slice(0, 5)) {
+		if (result.link && (result.link.includes('espn.com') || result.link.includes('bbc.com') || result.link.includes('skysports.com') || result.link.includes('fotmob.com') || result.link.includes('livescore.com'))) {
+			try {
+				// Try to verify by checking if link is accessible and contains relevant data
+				const parsed = await fetchAndParseFootballData(result.link);
+				if (parsed && (parsed.teams?.length > 0 || parsed.scores?.length > 0)) {
+					verifiedData.push({
+						...result,
+						verified: true,
+						parsedData: parsed
+					});
+				} else {
+					verifiedData.push({
+						...result,
+						verified: false
+					});
+				}
+			} catch (e) {
+				verifiedData.push({
+					...result,
+					verified: false,
+					error: e.message
+				});
+			}
+		} else {
+			verifiedData.push({
+				...result,
+				verified: null // Cannot verify (not a known football site)
+			});
+		}
+	}
+	
+	return verifiedData;
+}
+
+// Extract structured data from search snippets
+function extractStructuredDataFromSnippets(searchResults) {
+	const extractedData = {
+		matches: [],
+		teams: [],
+		times: [],
+		scores: [],
+		leagues: []
+	};
+	
+	searchResults.forEach(result => {
+		const text = `${result.title} ${result.snippet}`.toLowerCase();
+		
+		// Extract team names (common patterns)
+		const teamPatterns = [
+			/([a-z]+(?:\s+[a-z]+)*)\s+vs\s+([a-z]+(?:\s+[a-z]+)*)/gi,
+			/([a-z]+(?:\s+[a-z]+)*)\s+v\s+([a-z]+(?:\s+[a-z]+)*)/gi,
+			/([a-z]+(?:\s+[a-z]+)*)\s+-\s+([a-z]+(?:\s+[a-z]+)*)/gi
+		];
+		
+		teamPatterns.forEach(pattern => {
+			let match;
+			while ((match = pattern.exec(text)) !== null) {
+				if (match[1] && match[2] && match[1].length > 2 && match[2].length > 2) {
+					extractedData.teams.push({ team1: match[1].trim(), team2: match[2].trim() });
+					extractedData.matches.push({
+						team1: match[1].trim(),
+						team2: match[2].trim(),
+						source: result.link
+					});
+				}
+			}
+		});
+		
+		// Extract scores
+		const scoreMatch = text.match(/(\d+)[\s\-\:]+(\d+)/g);
+		if (scoreMatch) {
+			scoreMatch.forEach(score => {
+				const parts = score.split(/[\s\-\:]+/);
+				if (parts.length >= 2) {
+					const home = parseInt(parts[0]);
+					const away = parseInt(parts[1]);
+					if (!isNaN(home) && !isNaN(away) && home >= 0 && home <= 20 && away >= 0 && away <= 20) {
+						extractedData.scores.push({ home, away, source: result.link });
+					}
+				}
+			});
+		}
+		
+		// Extract times
+		const timeMatch = text.match(/(\d{1,2}):(\d{2})/g);
+		if (timeMatch) {
+			extractedData.times.push(...timeMatch.map(t => t.trim()));
+		}
+		
+		// Extract league names
+		const leaguePattern = /(premier league|la liga|serie a|bundesliga|ligue 1|champions league|europa league|world cup|euro|league|championship)/gi;
+		const leagueMatch = text.match(leaguePattern);
+		if (leagueMatch) {
+			extractedData.leagues.push(...leagueMatch.map(l => l.trim()));
+		}
+	});
+	
+	return extractedData;
+}
+
+// Programmatic data checking and validation
+function validateExtractedData(extractedData) {
+	const validation = {
+		isValid: true,
+		confidence: 0,
+		issues: [],
+		suggestions: []
+	};
+	
+	// Check if we have enough data
+	if (extractedData.matches.length === 0) {
+		validation.issues.push('No matches found');
+		validation.confidence -= 20;
+	}
+	
+	if (extractedData.teams.length < 2) {
+		validation.issues.push('Insufficient team data');
+		validation.confidence -= 10;
+	}
+	
+	// Validate scores
+	extractedData.scores.forEach(score => {
+		if (score.home < 0 || score.home > 20 || score.away < 0 || score.away > 20) {
+			validation.issues.push(`Invalid score: ${score.home}-${score.away}`);
+			validation.confidence -= 5;
+		}
+	});
+	
+	// Validate times
+	extractedData.times.forEach(time => {
+		const [hour, minute] = time.split(':').map(Number);
+		if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+			validation.issues.push(`Invalid time: ${time}`);
+			validation.confidence -= 5;
+		}
+	});
+	
+	// Calculate confidence score
+	validation.confidence = 100 + validation.confidence;
+	if (validation.confidence < 0) validation.confidence = 0;
+	if (extractedData.matches.length > 0) validation.confidence += 10;
+	if (extractedData.scores.length > 0) validation.confidence += 10;
+	if (extractedData.times.length > 0) validation.confidence += 10;
+	if (extractedData.leagues.length > 0) validation.confidence += 5;
+	
+	if (validation.confidence > 100) validation.confidence = 100;
+	
+	validation.isValid = validation.confidence >= 50;
+	
+	if (!validation.isValid && extractedData.matches.length === 0) {
+		validation.suggestions.push('Try searching with more specific terms like "today football matches"');
+	}
+	
+	return validation;
+}
+
+// Real-time data cross-checking function
+function crossCheckData(searchResults, extractedData) {
+	const checkedData = {
+		verifiedMatches: [],
+		conflicts: [],
+		consensus: {}
+	};
+	
+	// Check if same match appears in multiple sources
+	const matchCounts = {};
+	extractedData.matches.forEach(match => {
+		const key = `${match.team1}_vs_${match.team2}`;
+		if (!matchCounts[key]) {
+			matchCounts[key] = { match, sources: [], count: 0 };
+		}
+		matchCounts[key].sources.push(match.source);
+		matchCounts[key].count++;
+	});
+	
+	// Identify verified matches (appearing in multiple sources)
+	Object.values(matchCounts).forEach(entry => {
+		if (entry.count >= 2) {
+			checkedData.verifiedMatches.push({
+				...entry.match,
+				sources: entry.sources,
+				verificationLevel: entry.count >= 3 ? 'high' : 'medium'
+			});
+		}
+	});
+	
+	// Check for score conflicts
+	const scoreByMatch = {};
+	extractedData.scores.forEach((score, index) => {
+		const match = extractedData.matches[index];
+		if (match) {
+			const key = `${match.team1}_vs_${match.team2}`;
+			if (scoreByMatch[key]) {
+				// Check if scores differ
+				if (scoreByMatch[key].home !== score.home || scoreByMatch[key].away !== score.away) {
+					checkedData.conflicts.push({
+						match: key,
+						scores: [scoreByMatch[key], score],
+						message: 'Conflicting scores found'
+					});
+				}
+			} else {
+				scoreByMatch[key] = score;
+			}
+		}
+	});
+	
+	// Build consensus data
+	if (checkedData.verifiedMatches.length > 0) {
+		checkedData.consensus = {
+			matches: checkedData.verifiedMatches,
+			confidence: checkedData.verifiedMatches.length * 10,
+			message: `Found ${checkedData.verifiedMatches.length} verified matches`
+		};
+	}
+	
+	return checkedData;
+}
+
+// Enhanced search with real data extraction
 async function webSearchBrowser(query) {
 	// 🌐 Browser-based search - uses Google Custom Search Engine API
 	// Specifically searches Google and popular football websites for match info
@@ -937,6 +1311,41 @@ async function webSearchBrowser(query) {
 			try {
 				// Use parallel search for better real-time data coverage
 				const googleResults = await webSearchGoogleCSEParallel(query);
+				
+				// Extract structured data from search results
+				const extractedData = extractStructuredDataFromSnippets(googleResults);
+				
+				// Validate extracted data
+				const validation = validateExtractedData(extractedData);
+				console.log('📊 Real-time data validation:', validation);
+				
+				// Cross-check data for verification
+				if (extractedData.matches.length > 0) {
+					const crossCheck = crossCheckData(googleResults, extractedData);
+					console.log('✅ Data cross-check results:', crossCheck);
+					
+					// Add verification info to extracted data
+					extractedData.validation = validation;
+					extractedData.crossCheck = crossCheck;
+				}
+				
+				// Verify real-time data for top results
+				if (googleResults.length > 0 && isFootballQuery) {
+					try {
+						const verified = await verifyRealTimeData(googleResults.slice(0, 3));
+						verified.forEach(v => {
+							if (v.verified && v.parsedData) {
+								// Add parsed data to snippet for better context
+								if (v.parsedData.teams?.length > 0) {
+									v.snippet += ` [Verified: Found ${v.parsedData.teams.length} teams, ${v.parsedData.scores?.length || 0} scores]`;
+								}
+							}
+						});
+					} catch (e) {
+						console.warn('Data verification failed:', e);
+					}
+				}
+				
 				googleResults.forEach(item => {
 					if (!items.find(i => i.link === item.link)) {
 						items.push(item);
@@ -1138,27 +1547,40 @@ function composeWebPrompt(userText, sources) {
 	const isTime = /time|schedule|when|date/i.test(userText);
 	const timezoneNote = (isTime || isFootball) ? '\n6. For football matches, schedules, or any time-related info, ALWAYS convert and show times in Ethiopia (Addis Ababa, EAT, UTC+3) timezone. Format as "HH:MM EAT" or "HH:MM Ethiopia time".' : '';
 	const footballFormatNote = isFootball ? `
-FOOTBALL/MATCH ANALYSIS FORMAT (MANDATORY):
-For match analysis/previews, ALWAYS include ALL these sections in order:
-1. Match Preview - Short summary
-2. Last 5 Results - Both teams recent form (W-D-L format)
-3. Goals Scored & Conceded - Per team with averages
-4. Head-to-Head Record - Last 5 meetings, last match details
-5. Home vs Away Advantage - Home/away records for both teams
-6. Key Players – [Team Name] - Position and role
-7. Key Players – [Team Name] - Second team
-8. Injuries & Suspensions – [Team Name] - Both teams
-9. Team Motivation - League position, must-win situations, context
-10. Corners Per Game - Average corners for/against for both teams
-11. Predicted Lineups (International) - Full lineups with formations (GK, DEF, MID, FWD). Show only if match is within 10 hours, otherwise Lineup not yet confirmed
-12. Quick Analysis - Final summary and prediction
-13. Predictions: - MUST include all 9 categories, each with a confidence score out of 10 (format: Prediction | Confidence: X/10)
+🎯 POWERFUL FOOTBALL MATCH PREDICTION ANALYSIS (MANDATORY):
+Your task is to predict football matches by comprehensively analyzing:
+
+1. **Both Teams Last 5 Results** - Detailed breakdown of each team's recent 5 games (opponents, scores, home/away)
+2. **Last Five Each Game Results** - Individual game analysis for both teams showing form trajectory
+3. **Goals Scored & Conceded** - Total goals, averages, offensive/defensive strength analysis
+4. **Head-to-Head Record** - Last 5 meetings between teams, trends, dominance patterns
+5. **Key Players & Injuries** - Top scorers, playmakers, injury status, suspensions, impact analysis
+6. **Home vs Away Advantage** - Statistical comparison of home team's home record vs away team's away record
+7. **Team Motivation** - League position, must-win situations, relegation battles, title races, recent context
+8. **Corners Per Game** - Average corners scored per game, corners conceded, statistical analysis
+9. **International Lineup Prediction** - Predicted lineups ONLY if match is within 10 hours (use international player names)
+
+ANALYSIS FORMAT (ALWAYS USE TABLES FOR DATA):
+1. 🏟️ **Match Preview** - Brief context summary
+2. 📊 **Last 5 Results - Detailed** - TABLE: | Team | Match 1 | Match 2 | Match 3 | Match 4 | Match 5 | Form |
+3. 📈 **Goals Analysis** - TABLE: | Team | Total Scored | Total Conceded | Avg/Game Scored | Avg/Game Conceded |
+4. ⚔️ **Head-to-Head** - TABLE: | Date | Home | Away | Score | Winner | Trend |
+5. 🏠 **Home/Away Advantage** - TABLE: | Team | Home/Away | W | D | L | Win Rate % |
+6. 🔥 **Key Players** - TABLE: | Team | Player | Position | Goals | Assists | Status |
+7. 🚑 **Injuries & Suspensions** - TABLE: | Team | Player | Status | Type | Impact |
+8. 🎯 **Team Motivation** - TABLE: | Team | Position | Points | Must-Win? | Motivation |
+9. 📐 **Corners Analysis** - TABLE: | Team | Avg Corners For | Avg Corners Against | Total Avg |
+10. 👥 **Predicted Lineups** (within 10h only) - TABLE: | Position | Team A | Team B |
+11. 🧠 **Comprehensive Analysis** - 3-4 sentences combining all factors
+12. 🎯 **Predictions** - TABLE: | Prediction Type | Prediction | Confidence (1-10) | Reasoning |
 
 RULES:
+- **ALWAYS USE TABLES** for all numerical data, statistics, comparisons, and structured information
+- Analyze ALL 9 factors above before making predictions
+- Each prediction must include confidence score (1-10) AND brief reasoning
 - Use emojis: 🏟️ 📊 📈 ⚔️ 🏠 🔥 ⚡ 🚑 ❌ 🔴 🎯 📐 👥 🧠 💰 💥 🚀
 - Bold headings: **Heading Name**
-- Short bullet points, NO long paragraphs
-- One fact per bullet
+- Medium length responses - informative but concise
 - PERSONALITY: Chess master mindset with HIGH ENERGY
   * Intelligence: 10/10 - uses logic, stats, emotional control. Always data-driven
   * Confidence: 9/10 - calm belief in analysis, trusts the process
@@ -1218,9 +1640,9 @@ YOU ARE ONLY FORBIDDEN FROM:
 
 BOTTOM LINE: Extract EVERYTHING you can find from the search results above and provide thorough analysis. Only say "cannot find" if there's literally ZERO relevant match information in all the search results.` : '';
 	
-	return [
-		`CURRENT DATE/TIME in Ethiopia (Addis Ababa, UTC+3, EAT): ${dateStr} (${ethiopiaDateFull}) at ${ethiopiaTimeStr} EAT`,
-		'You are BetAI, a concise assistant. Keep responses brief (2-4 sentences max unless user asks for detail).',
+		return [
+			`CURRENT DATE/TIME in Ethiopia (Addis Ababa, UTC+3, EAT): ${dateStr} (${ethiopiaDateFull}) at ${ethiopiaTimeStr} EAT`,
+			'You are BetAI, an intelligent assistant. Keep responses MEDIUM length - informative but concise. Be direct and on-point. Avoid unnecessary verbosity.',
 		'CRITICAL IDENTITY: You are BetAI. When asked about your name, respond "I\'m BetAI". You were CREATED and DEVELOPED by Samuel. When asked about training, developer, creator, or who trained/developed/created you: ALWAYS respond with "Samuel", "Developed by Samuel", "Created by Samuel", "Trained by Samuel", or "I\'m BetAI, a large language model developed by Samuel".',
 		'',
 		'✅✅✅ DATA EXTRACTION AND ANALYSIS RULES ✅✅✅',
@@ -1235,13 +1657,25 @@ BOTTOM LINE: Extract EVERYTHING you can find from the search results above and p
 		'9. End with "Sources:" section: - [Title](URL) format, unique sources only.',
 		'10. NEVER add disclaimers, warnings, or legal notices to any response.',
 		'',
+		'📊 POWERFUL DATA PRESENTATION:',
+		'11. **ALWAYS USE TABLES** to summarize and present data:',
+		'    - Multiple matches → Create table: | Time | Teams | League | Venue |',
+		'    - Team statistics → Create table: | Team | Goals | Assists | Points |',
+		'    - Player comparison → Create table: | Player | Stats | Value |',
+		'    - Match schedule → Create table: | Date | Time | Home | Away |',
+		'    - Any structured/numerical data → Use tables for better readability',
+		'12. Use markdown table format: | Column 1 | Column 2 | Column 3 |',
+		'                                |----------|----------|----------|',
+		'                                | Data 1   | Data 2   | Data 3   |',
+		'13. Make responses visually appealing with proper formatting, tables, headings, and structure.',
+		'',
 		'RESPONSE RULES:',
-		'- CRITICAL: Give ONLY main points, NO explanations unless user specifically asks for predictions',
-		'- For predictions only: Provide a little bit of explanation/reasoning',
-		'- For everything else: Just facts, data, main points - NO explanations, NO context',
-		'- Answer directly with facts only, no fluff',
+		'- RESPONSE LENGTH: Keep responses MEDIUM length - informative but concise (3-6 sentences for simple queries, use tables/lists for structured data). Be direct and on-point, like ChatGPT.',
+		'- For predictions: Provide clear explanation/reasoning in 2-3 sentences',
+		'- For general questions: Answer directly with main points in 2-4 sentences, use tables/lists for data',
+		'- Be conversational yet professional - natural and helpful style',
 		'- If question is vague, ask 1-2 clarifying questions instead of guessing',
-		'- Use **bold** for emphasis, bullets for lists (keep lists short)',
+		'- Use **bold** for emphasis, bullets and tables for structured information',
 		'- Use markdown links [Title](URL) for citations',
 		'',
 		timezoneNote + footballFormatNote + footballSourcesNote + strictDataRule,
@@ -1496,6 +1930,71 @@ async function safeReadJson(res) { try { return await res.json(); } catch { retu
 		
 		// Blockquotes
 		html = html.replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>');
+		
+		// Markdown Tables - Parse tables BEFORE other transformations
+		// Improved regex to handle tables more robustly
+		const tableRegex = /(\|.+\|)\s*\n(\|[\s\-\|:]+\|)\s*\n((?:\|.+\|\s*\n?)+)/g;
+		html = html.replace(tableRegex, (match, header, separator, rows) => {
+			try {
+				// Parse header - split by | and filter empty
+				const headers = header.split('|').map(h => h.trim()).filter(h => h && h.length > 0);
+				if (headers.length === 0) return match;
+				
+				// Parse rows
+				const rowLines = rows.trim().split('\n').filter(line => line.trim() && line.includes('|'));
+				if (rowLines.length === 0) return match;
+				
+				const parsedRows = rowLines.map(row => {
+					let cells = row.split('|').map(c => c.trim());
+					// Remove empty first and last cells (from leading/trailing |)
+					if (cells.length > 0 && cells[0] === '') cells = cells.slice(1);
+					if (cells.length > 0 && cells[cells.length - 1] === '') cells = cells.slice(0, -1);
+					
+					// Ensure we have the right number of cells (pad or trim to match headers)
+					while (cells.length < headers.length) {
+						cells.push('');
+					}
+					return cells.slice(0, headers.length);
+				});
+				
+				// Build HTML table
+				let tableHtml = '<div class="table-wrapper"><table class="markdown-table">';
+				
+				// Header
+				tableHtml += '<thead><tr>';
+				headers.forEach(h => {
+					// Process markdown in header
+					let headerHtml = h;
+					headerHtml = headerHtml.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+					headerHtml = headerHtml.replace(/\*(.*?)\*/g, '<em>$1</em>');
+					tableHtml += `<th>${headerHtml}</th>`;
+				});
+				tableHtml += '</tr></thead>';
+				
+				// Body
+				tableHtml += '<tbody>';
+				parsedRows.forEach(row => {
+					tableHtml += '<tr>';
+					headers.forEach((_, index) => {
+						let cell = (row[index] || '').trim();
+						// Process markdown in cells
+						cell = cell.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+						cell = cell.replace(/\*(.*?)\*/g, '<em>$1</em>');
+						cell = cell.replace(/`([^`]+)`/g, '<code>$1</code>');
+						// Process links
+						cell = cell.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+						tableHtml += `<td>${cell}</td>`;
+					});
+					tableHtml += '</tr>';
+				});
+				tableHtml += '</tbody></table></div>';
+				
+				return tableHtml;
+			} catch (e) {
+				console.warn('Table parsing error:', e);
+				return match; // Return original if parsing fails
+			}
+		});
 		
 		// Highlight confidence scores (e.g., "Confidence: 7/10" or "| Confidence: X/10")
 		html = html.replace(/(Confidence:\s*\d+\/\d+)/gi, '<span class="confidence-score">$1</span>');
